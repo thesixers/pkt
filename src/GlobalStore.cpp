@@ -106,7 +106,7 @@ bool GlobalStore::addToGlobalDeps(const std::string& language, const std::string
 }
 
 bool GlobalStore::removeFromGlobalDeps(const std::string& language, const std::string& name, 
-                                       const std::string& version) {
+                                       const std::string& /*version*/) {
     json deps = loadDepsFile(language);
     
     if (deps.contains(name)) {

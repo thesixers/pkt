@@ -100,53 +100,73 @@ bool DependencyManager::addDependency(const std::string& packageSpec) {
     // Parse package specification
     PackageSpec spec = parsePackageSpec(packageSpec);
     
+    return addDependencyRecursive(language, spec.name, spec.version, depFolder, true);
+}
+
+bool DependencyManager::addDependencyRecursive(const std::string& language, 
+                                              const std::string& packageName,
+                                              const std::string& version,
+                                              const std::string& depFolder,
+                                              bool isDirect) {
     // Load current dependencies
     auto deps = loadProjectDeps();
     
-    // Check if already installed
-    if (deps.find(spec.name) != deps.end()) {
-        Utils::logWarning("Package '" + spec.name + "' is already installed");
-        return true;
-    }
-    
     // Resolve version
-    std::string version = resolveVersion(language, spec.name, spec.version);
-    if (version.empty()) {
+    std::string resolvedVersion = resolveVersion(language, packageName, version);
+    if (resolvedVersion.empty()) {
         return false;
     }
     
+    // Check if already installed (if direct, we might want to update, but for now just skip)
+    if (isDirect && deps.find(packageName) != deps.end() && deps[packageName] == resolvedVersion) {
+        Utils::logWarning("Package '" + packageName + "' is already installed at version " + resolvedVersion);
+        return true;
+    }
+    
     // Check if package exists in global store
-    if (!store.packageExists(language, spec.name, version)) {
-        Utils::logInfo("Downloading " + spec.name + "@" + version + "...");
+    if (!store.packageExists(language, packageName, resolvedVersion)) {
+        Utils::logInfo("Downloading " + packageName + "@" + resolvedVersion + "...");
         
         // Add to global store
-        if (!store.addPackage(language, spec.name, version)) {
+        if (!store.addPackage(language, packageName, resolvedVersion)) {
             Utils::logError("Failed to add package to global store");
             return false;
         }
         
         // Download package
-        std::string pkgPath = store.getPackagePath(language, spec.name, version);
-        if (!client.downloadPackage(language, spec.name, version, pkgPath)) {
+        std::string pkgPath = store.getPackagePath(language, packageName, resolvedVersion);
+        if (!client.downloadPackage(language, packageName, resolvedVersion, pkgPath)) {
             Utils::logError("Failed to download package");
             return false;
         }
     }
     
     // Create symlink
-    if (!createSymlink(spec.name, version, language, depFolder)) {
-        Utils::logError("Failed to create symlink");
+    if (!createSymlink(packageName, resolvedVersion, language, depFolder)) {
+        Utils::logError("Failed to create symlink for " + packageName);
         return false;
     }
     
-    // Update project dependencies
-    deps[spec.name] = version;
-    if (!saveProjectDeps(deps)) {
-        Utils::logError("Failed to update .pkg.deps");
-        return false;
+    // Update project dependencies if it's a direct dependency
+    if (isDirect) {
+        deps[packageName] = resolvedVersion;
+        if (!saveProjectDeps(deps)) {
+            Utils::logError("Failed to update .pkg.deps");
+            return false;
+        }
+        Utils::logSuccess("Added " + packageName + "@" + resolvedVersion);
+    } else {
+        Utils::logInfo("Installed sub-dependency: " + packageName + "@" + resolvedVersion);
     }
     
-    Utils::logSuccess("Added " + spec.name + "@" + version);
+    // Recursive resolution: fetch sub-dependencies
+    auto subDeps = client.getDependencies(language, packageName, resolvedVersion);
+    for (const auto& pair : subDeps) {
+        if (!addDependencyRecursive(language, pair.first, pair.second, depFolder, false)) {
+            Utils::logWarning("Failed to install sub-dependency: " + pair.first);
+        }
+    }
+    
     return true;
 }
 
@@ -252,8 +272,19 @@ void DependencyManager::listGlobalDeps(const std::string& language, bool allLang
 
 bool DependencyManager::createSymlink(const std::string& packageName, const std::string& version,
                                      const std::string& language, const std::string& depFolder) {
-    std::string target = store.getPackagePath(language, packageName, version);
+    std::string packagePath = store.getPackagePath(language, packageName, version);
+    std::string entryPoint = client.getEntryPoint(language, packageName, packagePath);
+    
+    std::string target = packagePath;
+    if (!entryPoint.empty()) {
+        target = Utils::joinPath(packagePath, entryPoint);
+    }
+    
     std::string link = Utils::joinPath({Utils::getCurrentDir(), depFolder, packageName});
+    
+    // For Node.js, if we link a file, we should probably keep the name but Node.js 
+    // expects node_modules/pkg to be the entry point.
+    // If target is a file, the symlink 'link' will point to that file.
     
     // Remove existing symlink if present
     if (Utils::isSymlink(link)) {

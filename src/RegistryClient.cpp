@@ -101,6 +101,28 @@ bool RegistryClient::packageExists(const std::string& language, const std::strin
     return !getLatestVersion(language, packageName).empty();
 }
 
+std::map<std::string, std::string> RegistryClient::getDependencies(const std::string& language, 
+                                                                 const std::string& packageName, 
+                                                                 const std::string& version) {
+    std::map<std::string, std::string> deps;
+    
+    if (language == "node") {
+        // In a real implementation, we would fetch the package.json from the registry
+        // For this mock, we'll return some dependencies for specific packages
+        if (packageName == "vibe-framework") {
+            deps["lodash"] = "4.17.21";
+            deps["express"] = "4.18.2";
+        }
+    } else if (language == "python") {
+        if (packageName == "flask") {
+            deps["werkzeug"] = "2.3.0";
+            deps["jinja2"] = "3.1.2";
+        }
+    }
+    
+    return deps;
+}
+
 bool RegistryClient::downloadPackage(const std::string& language, const std::string& packageName,
                                     const std::string& version, const std::string& destPath) {
     if (language == "node") {
@@ -135,6 +157,28 @@ std::string RegistryClient::getLatestVersionNpm(const std::string& packageName) 
         Utils::logError("Failed to parse npm response: " + std::string(e.what()));
     }
     
+    return "";
+}
+
+std::string RegistryClient::getEntryPoint(const std::string& language, const std::string& /*packageName*/,
+                                         const std::string& destPath) {
+    if (language == "node") {
+        std::string pkgJsonPath = Utils::joinPath(destPath, "package.json");
+        if (Utils::fileExists(pkgJsonPath)) {
+            try {
+                std::string content = Utils::readFile(pkgJsonPath);
+                if (!content.empty()) {
+                    json pkgJson = json::parse(content);
+                    if (pkgJson.contains("main")) {
+                        return pkgJson["main"].get<std::string>();
+                    }
+                }
+            } catch (...) {}
+        }
+        return "index.js";
+    } else if (language == "python") {
+        return "__init__.py";
+    }
     return "";
 }
 
@@ -232,7 +276,7 @@ bool RegistryClient::downloadRubyGem(const std::string& packageName, const std::
 }
 
 // Maven implementation
-std::string RegistryClient::getLatestVersionMaven(const std::string& packageName) {
+std::string RegistryClient::getLatestVersionMaven(const std::string& /*packageName*/) {
     // Maven packages use group:artifact format
     // For simplicity, we'll return a placeholder
     Utils::logWarning("Maven version lookup not fully implemented");
@@ -254,7 +298,7 @@ bool RegistryClient::downloadMavenPackage(const std::string& packageName, const 
 }
 
 // Go implementation
-std::string RegistryClient::getLatestVersionGo(const std::string& packageName) {
+std::string RegistryClient::getLatestVersionGo(const std::string& /*packageName*/) {
     // Go modules use semantic versioning with v prefix
     Utils::logWarning("Go version lookup not fully implemented");
     return "v1.0.0";

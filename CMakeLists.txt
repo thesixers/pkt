@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(pkg VERSION 1.0.0 LANGUAGES CXX)
+project(pkt VERSION 1.0.0 LANGUAGES CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -41,6 +41,10 @@ add_executable(pkt ${SOURCES})
 
 # Link libraries
 target_link_libraries(pkt PRIVATE nlohmann_json::nlohmann_json CURL::libcurl)
+
+if(WIN32)
+    target_link_libraries(pkt PRIVATE ws2_32 crypt32 wldap32 normaliz)
+endif()
 
 # Compiler warnings
 if(MSVC)

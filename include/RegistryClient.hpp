@@ -16,10 +16,15 @@ public:
     // Version resolution
     std::string getLatestVersion(const std::string& language, const std::string& packageName);
     bool packageExists(const std::string& language, const std::string& packageName);
+    std::map<std::string, std::string> getDependencies(const std::string& language, 
+                                                     const std::string& packageName, 
+                                                     const std::string& version);
     
     // Package download
     bool downloadPackage(const std::string& language, const std::string& packageName, 
                         const std::string& version, const std::string& destPath);
+    std::string getEntryPoint(const std::string& language, const std::string& packageName,
+                             const std::string& destPath);
     
 private:
     std::map<std::string, std::string> registryUrls;

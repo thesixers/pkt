@@ -253,7 +253,7 @@ int Utils::fuzzyMatch(const std::string& query, const std::string& target) {
     }
     
     if (queryIdx == lowerQuery.size()) {
-        return (matches * 50) / lowerQuery.size();
+        return static_cast<int>((matches * 50) / lowerQuery.size());
     }
     
     return 0;
