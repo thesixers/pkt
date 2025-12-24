@@ -299,17 +299,10 @@ void DependencyManager::listGlobalDeps(const std::string& language, bool allLang
 bool DependencyManager::createSymlink(const std::string& packageName, const std::string& version,
                                      const std::string& language, const std::string& depFolder) {
     std::string packagePath = store.getPackagePath(language, packageName, version);
-    std::string entryPoint = client.getEntryPoint(language, packageName, packagePath);
     
+    // CRITICAL: Link the package directory, not the entry point file.
+    // This ensures Node.js can find package.json and its own node_modules.
     std::string target = packagePath;
-    if (!entryPoint.empty()) {
-        // If it's a relative path starting with ./, remove it
-        std::string cleanEntryPoint = entryPoint;
-        if (cleanEntryPoint.size() >= 2 && cleanEntryPoint.substr(0, 2) == "./") {
-            cleanEntryPoint = cleanEntryPoint.substr(2);
-        }
-        target = Utils::joinPath(packagePath, cleanEntryPoint);
-    }
     
     // depFolder can be an absolute path (for sub-deps in store) or relative (for project deps)
     std::string link;
