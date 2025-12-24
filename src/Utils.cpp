@@ -166,6 +166,15 @@ bool Utils::isSymlink(const std::string& path) {
 #endif
 }
 
+bool Utils::isAbsolutePath(const std::string& path) {
+    if (path.empty()) return false;
+#ifdef _WIN32
+    return path.size() >= 2 && isalpha(path[0]) && path[1] == ':';
+#else
+    return path[0] == '/';
+#endif
+}
+
 bool Utils::removeSymlink(const std::string& path) {
     if (!isSymlink(path)) return false;
     return removeFile(path);
