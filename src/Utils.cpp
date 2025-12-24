@@ -11,7 +11,9 @@
 #ifdef _WIN32
     #include <windows.h>
     #include <direct.h>
+    #include <io.h>
     #define mkdir(path, mode) _mkdir(path)
+    #define getcwd _getcwd
 #else
     #include <unistd.h>
     #include <sys/types.h>

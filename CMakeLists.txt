@@ -45,6 +45,7 @@ target_link_libraries(pkt PRIVATE nlohmann_json::nlohmann_json CURL::libcurl)
 # Compiler warnings
 if(MSVC)
     target_compile_options(pkt PRIVATE /W4)
+    target_compile_definitions(pkt PRIVATE _CRT_SECURE_NO_WARNINGS)
 else()
     target_compile_options(pkt PRIVATE -Wall -Wextra -Wpedantic)
 endif()
