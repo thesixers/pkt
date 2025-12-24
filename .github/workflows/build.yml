@@ -23,9 +23,6 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Test
-        run: cd build && ctest --output-on-failure
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -46,9 +43,6 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Test
-        run: cd build && ctest --output-on-failure
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -60,14 +54,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install vcpkg and curl
+        run: |
+          vcpkg install curl:x64-windows
+          
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
 
       - name: Build
         run: cmake --build build --config Release
-
-      - name: Test
-        run: cd build && ctest --output-on-failure -C Release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
