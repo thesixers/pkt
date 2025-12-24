@@ -1,0 +1,276 @@
+#include "DependencyManager.hpp"
+#include "Utils.hpp"
+#include <iostream>
+#include <fstream>
+
+namespace pkg {
+
+DependencyManager::DependencyManager(GlobalRegistry& registry, GlobalStore& store, 
+                                     RegistryClient& client)
+    : registry(registry), store(store), client(client) {}
+
+DependencyManager::PackageSpec DependencyManager::parsePackageSpec(const std::string& spec) {
+    PackageSpec result;
+    
+    size_t atPos = spec.find('@');
+    if (atPos != std::string::npos) {
+        result.name = spec.substr(0, atPos);
+        result.version = spec.substr(atPos + 1);
+        result.hasVersion = true;
+    } else {
+        result.name = spec;
+        result.version = "";
+        result.hasVersion = false;
+    }
+    
+    return result;
+}
+
+std::map<std::string, std::string> DependencyManager::loadProjectDeps() const {
+    std::string depsPath = Utils::joinPath(Utils::getCurrentDir(), ".pkg.deps");
+    
+    if (!Utils::fileExists(depsPath)) {
+        return {};
+    }
+    
+    std::string content = Utils::readFile(depsPath);
+    if (content.empty()) {
+        return {};
+    }
+    
+    try {
+        json data = json::parse(content);
+        std::map<std::string, std::string> deps;
+        
+        for (auto it = data.begin(); it != data.end(); ++it) {
+            deps[it.key()] = it.value().get<std::string>();
+        }
+        
+        return deps;
+    } catch (const json::exception& e) {
+        Utils::logError("Failed to parse .pkg.deps: " + std::string(e.what()));
+        return {};
+    }
+}
+
+bool DependencyManager::saveProjectDeps(const std::map<std::string, std::string>& deps) {
+    std::string depsPath = Utils::joinPath(Utils::getCurrentDir(), ".pkg.deps");
+    
+    json data = json::object();
+    for (const auto& pair : deps) {
+        data[pair.first] = pair.second;
+    }
+    
+    return Utils::writeFile(depsPath, data.dump(2));
+}
+
+std::string DependencyManager::resolveVersion(const std::string& language, 
+                                              const std::string& packageName,
+                                              const std::string& requestedVersion) {
+    if (!requestedVersion.empty()) {
+        return requestedVersion;
+    }
+    
+    // Query registry for latest version
+    Utils::logInfo("Fetching latest version of " + packageName + "...");
+    std::string latestVersion = client.getLatestVersion(language, packageName);
+    
+    if (latestVersion.empty()) {
+        Utils::logError("Failed to fetch version for " + packageName);
+        return "";
+    }
+    
+    return latestVersion;
+}
+
+bool DependencyManager::addDependency(const std::string& packageSpec) {
+    // Check if in project folder
+    std::string pkgInfoPath = Utils::joinPath(Utils::getCurrentDir(), ".pkg.info");
+    if (!Utils::fileExists(pkgInfoPath)) {
+        Utils::logError("Not in a PKG project directory");
+        return false;
+    }
+    
+    // Load project info
+    std::string content = Utils::readFile(pkgInfoPath);
+    json projectInfo = json::parse(content);
+    std::string language = projectInfo["language"];
+    std::string depFolder = projectInfo["default_dep_folder"];
+    
+    // Parse package specification
+    PackageSpec spec = parsePackageSpec(packageSpec);
+    
+    // Load current dependencies
+    auto deps = loadProjectDeps();
+    
+    // Check if already installed
+    if (deps.find(spec.name) != deps.end()) {
+        Utils::logWarning("Package '" + spec.name + "' is already installed");
+        return true;
+    }
+    
+    // Resolve version
+    std::string version = resolveVersion(language, spec.name, spec.version);
+    if (version.empty()) {
+        return false;
+    }
+    
+    // Check if package exists in global store
+    if (!store.packageExists(language, spec.name, version)) {
+        Utils::logInfo("Downloading " + spec.name + "@" + version + "...");
+        
+        // Add to global store
+        if (!store.addPackage(language, spec.name, version)) {
+            Utils::logError("Failed to add package to global store");
+            return false;
+        }
+        
+        // Download package
+        std::string pkgPath = store.getPackagePath(language, spec.name, version);
+        if (!client.downloadPackage(language, spec.name, version, pkgPath)) {
+            Utils::logError("Failed to download package");
+            return false;
+        }
+    }
+    
+    // Create symlink
+    if (!createSymlink(spec.name, version, language, depFolder)) {
+        Utils::logError("Failed to create symlink");
+        return false;
+    }
+    
+    // Update project dependencies
+    deps[spec.name] = version;
+    if (!saveProjectDeps(deps)) {
+        Utils::logError("Failed to update .pkg.deps");
+        return false;
+    }
+    
+    Utils::logSuccess("Added " + spec.name + "@" + version);
+    return true;
+}
+
+bool DependencyManager::removeDependency(const std::string& packageName) {
+    // Check if in project folder
+    std::string pkgInfoPath = Utils::joinPath(Utils::getCurrentDir(), ".pkg.info");
+    if (!Utils::fileExists(pkgInfoPath)) {
+        Utils::logError("Not in a PKG project directory");
+        return false;
+    }
+    
+    // Load project info
+    std::string content = Utils::readFile(pkgInfoPath);
+    json projectInfo = json::parse(content);
+    std::string depFolder = projectInfo["default_dep_folder"];
+    
+    // Load current dependencies
+    auto deps = loadProjectDeps();
+    
+    // Check if package exists
+    if (deps.find(packageName) == deps.end()) {
+        Utils::logError("Package '" + packageName + "' is not installed");
+        return false;
+    }
+    
+    std::string version = deps[packageName];
+    
+    // Remove symlink
+    if (!removeSymlink(packageName, depFolder)) {
+        Utils::logWarning("Failed to remove symlink (may not exist)");
+    }
+    
+    // Update project dependencies
+    deps.erase(packageName);
+    if (!saveProjectDeps(deps)) {
+        Utils::logError("Failed to update .pkg.deps");
+        return false;
+    }
+    
+    Utils::logSuccess("Removed " + packageName + "@" + version);
+    return true;
+}
+
+bool DependencyManager::updateDependency(const std::string& packageSpec) {
+    // Parse package specification
+    PackageSpec spec = parsePackageSpec(packageSpec);
+    
+    // Remove old version
+    if (!removeDependency(spec.name)) {
+        return false;
+    }
+    
+    // Add new version
+    return addDependency(packageSpec);
+}
+
+void DependencyManager::listProjectDeps() {
+    auto deps = loadProjectDeps();
+    
+    if (deps.empty()) {
+        Utils::logInfo("No dependencies installed");
+        return;
+    }
+    
+    std::cout << "\n📦 Project Dependencies:\n\n";
+    for (const auto& pair : deps) {
+        std::cout << "  • " << pair.first << "@" << pair.second << "\n";
+    }
+    std::cout << "\n";
+}
+
+void DependencyManager::listGlobalDeps(const std::string& language, bool allLanguages) {
+    if (allLanguages) {
+        auto languages = store.getSupportedLanguages();
+        
+        std::cout << "\n🌍 Global Dependencies (All Languages):\n\n";
+        for (const auto& lang : languages) {
+            auto deps = store.getGlobalDeps(lang);
+            
+            if (!deps.empty()) {
+                std::cout << "  " << lang << ":\n";
+                for (const auto& pair : deps) {
+                    std::cout << "    • " << pair.first << "@" << pair.second << "\n";
+                }
+                std::cout << "\n";
+            }
+        }
+    } else {
+        auto deps = store.getGlobalDeps(language);
+        
+        if (deps.empty()) {
+            Utils::logInfo("No global dependencies for " + language);
+            return;
+        }
+        
+        std::cout << "\n🌍 Global Dependencies (" << language << "):\n\n";
+        for (const auto& pair : deps) {
+            std::cout << "  • " << pair.first << "@" << pair.second << "\n";
+        }
+        std::cout << "\n";
+    }
+}
+
+bool DependencyManager::createSymlink(const std::string& packageName, const std::string& version,
+                                     const std::string& language, const std::string& depFolder) {
+    std::string target = store.getPackagePath(language, packageName, version);
+    std::string link = Utils::joinPath({Utils::getCurrentDir(), depFolder, packageName});
+    
+    // Remove existing symlink if present
+    if (Utils::isSymlink(link)) {
+        Utils::removeSymlink(link);
+    }
+    
+    return Utils::createSymlink(target, link);
+}
+
+bool DependencyManager::removeSymlink(const std::string& packageName, const std::string& depFolder) {
+    std::string link = Utils::joinPath({Utils::getCurrentDir(), depFolder, packageName});
+    
+    if (Utils::isSymlink(link)) {
+        return Utils::removeSymlink(link);
+    }
+    
+    return true;
+}
+
+} // namespace pkg
