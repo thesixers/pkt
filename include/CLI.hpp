@@ -26,6 +26,7 @@ private:
     int handleCreate(const std::vector<std::string>& args);
     int handleInit(const std::vector<std::string>& args);
     int handleOpen(const std::vector<std::string>& args);
+    int handleRun(const std::vector<std::string>& args);
     int handleEditor(const std::vector<std::string>& args);
     int handleSearch(const std::vector<std::string>& args);
     int handleProjects(const std::vector<std::string>& args);

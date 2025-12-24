@@ -1,6 +1,6 @@
 # Example Usage Guide
 
-This guide demonstrates how to use PKG after building it.
+This guide demonstrates how to use PKT after building it.
 
 ## Setup
 
@@ -16,48 +16,51 @@ sudo make install
 ## Example 1: Node.js Project
 
 ```bash
-# Create a new directory for your project
-mkdir my-node-app
+# Create a new Node.js project
+pkt create my-node-app --language node
 cd my-node-app
 
-# Initialize as a PKG project
-pkg create --language node
-
 # Add dependencies
-pkg add react@18.3.0
-pkg add express
-pkg add lodash@4.17.21
+pkt add react@18.3.0
+pkt add express
+pkt add lodash@4.17.21
+
+# Run a script
+echo 'const express = require("express"); console.log("Express loaded:", !!express);' > server.js
+pkt run server.js
 
 # List dependencies
-pkg deps list
+pkt deps list
 
 # Check what's in node_modules (should see symlinks)
 ls -la node_modules/
 
 # View global store
-cat ~/.pkg_global_store/node/.deps
-ls -la ~/.pkg_global_store/node/node_modules/
+cat ~/.pkt_global_store/node/.deps
+ls -la ~/.pkt_global_store/node/node_modules/
 
 # Set your editor
-pkg editor set code  # or 'vim', 'nano', 'subl', etc.
+pkt editor set code  # or 'vim', 'nano', 'subl', etc.
 
 # Register the project
-pkg projects
+pkt projects
 ```
 
 ## Example 2: Python Project
 
 ```bash
-mkdir my-python-app
+pkt create my-python-app --language python
 cd my-python-app
 
-pkg create --language python
+pkt add requests
+pkt add flask@2.3.0
+pkt add numpy
 
-pkg add requests
-pkg add flask@2.3.0
-pkg add numpy
+# Run a script
+echo 'import requests; print("Requests version:", requests.__version__)' > main.py
+pkt run main.py
 
-pkg deps list
+pkt deps list
 ls -la site-packages/
 ```
 
@@ -66,27 +69,27 @@ ls -la site-packages/
 ```bash
 # Create multiple projects
 mkdir -p ~/projects/web-app && cd ~/projects/web-app
-pkg create --language node
-pkg editor set code
+pkt create --language node
+pkt editor set code
 
 mkdir -p ~/projects/api-server && cd ~/projects/api-server
-pkg create --language python
-pkg editor set vim
+pkt create --language python
+pkt editor set vim
 
 mkdir -p ~/projects/cli-tool && cd ~/projects/cli-tool
-pkg create --language go
+pkt create --language go
 
 # List all projects
-pkg projects
+pkt projects
 
 # Search for a project
-pkg search web
+pkt search web
 
 # Open a project
-pkg open web-app  # Opens in VS Code
+pkt open web-app  # Opens in VS Code
 
 # Delete a project
-pkg delete cli-tool
+pkt delete cli-tool
 ```
 
 ## Example 4: Dependency Management
@@ -95,25 +98,25 @@ pkg delete cli-tool
 cd my-node-app
 
 # Add latest version
-pkg add axios
+pkt add axios
 
 # Add specific version
-pkg add typescript@5.0.0
+pkt add typescript@5.0.0
 
 # Update a dependency
-pkg update axios@1.6.0
+pkt update axios@1.6.0
 
 # Remove a dependency
-pkg remove lodash
+pkt remove lodash
 
 # List project dependencies
-pkg deps list
+pkt deps list
 
 # List global dependencies for Node.js
-pkg deps list --global --lang node
+pkt deps list --global --lang node
 
 # List all global dependencies (all languages)
-pkg deps list --global --all
+pkt deps list --global --all
 ```
 
 ## Example 5: Working with Existing Projects
@@ -123,11 +126,11 @@ pkg deps list --global --all
 cd ~/existing-project
 
 # Initialize it as a PKG project
-pkg init --language node
+pkt init --language node
 
 # Now you can manage dependencies
-pkg add express
-pkg add mongoose
+pkt add express
+pkt add mongoose
 ```
 
 ## Verifying Symlinks
@@ -135,10 +138,10 @@ pkg add mongoose
 ```bash
 # In your project directory
 ls -la node_modules/react
-# Should show: react -> /home/user/.pkg_global_store/node/node_modules/react/18.3.0
+# Should show: react -> /home/user/.pkt_global_store/node/node_modules/react/18.3.0
 
 # Check the actual package
-ls ~/.pkg_global_store/node/node_modules/react/18.3.0/
+ls ~/.pkt_global_store/node/node_modules/react/18.3.0/
 # Should contain package.json and other files
 ```
 
@@ -147,7 +150,7 @@ ls ~/.pkg_global_store/node/node_modules/react/18.3.0/
 After adding some packages, your global store will look like:
 
 ```
-~/.pkg_global_store/
+~/.pkt_global_store/
 ├── node/
 │   ├── node_modules/
 │   │   ├── react/
@@ -172,29 +175,29 @@ After adding some packages, your global store will look like:
 1. **Use specific versions** for production projects:
 
    ```bash
-   pkg add react@18.3.0
+   pkt add react@18.3.0
    ```
 
 2. **Check global dependencies** before adding:
 
    ```bash
-   pkg deps list --global --lang node
+   pkt deps list --global --lang node
    ```
 
 3. **Set editor per project** for convenience:
 
    ```bash
-   pkg editor set code
-   pkg open my-app  # Opens in VS Code
+   pkt editor set code
+   pkt open my-app  # Opens in VS Code
    ```
 
 4. **Search projects** with fuzzy matching:
 
    ```bash
-   pkg search api  # Finds "api-server", "my-api", etc.
+   pkt search api  # Finds "api-server", "my-api", etc.
    ```
 
 5. **Clean up** unused projects:
    ```bash
-   pkg delete old-project
+   pkt delete old-project
    ```

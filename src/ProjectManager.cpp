@@ -8,13 +8,23 @@ namespace pkg {
 ProjectManager::ProjectManager(GlobalRegistry& registry, GlobalStore& store)
     : registry(registry), store(store) {}
 
-bool ProjectManager::createProject(const std::string& language) {
-    std::string currentDir = Utils::getCurrentDir();
-    std::string folderName = getCurrentFolderName();
+bool ProjectManager::createProject(const std::string& language, const std::string& name) {
+    std::string projectPath = Utils::getCurrentDir();
+    std::string projectName = getCurrentFolderName();
+    
+    if (!name.empty()) {
+        projectPath = Utils::joinPath(projectPath, name);
+        projectName = name;
+        if (!Utils::createDirRecursive(projectPath)) {
+            Utils::logError("Failed to create project directory: " + projectPath);
+            return false;
+        }
+    }
     
     // Check if already a project
-    if (isProjectFolder()) {
-        Utils::logError("Current directory is already a PKG project");
+    std::string pkgInfoPath = Utils::joinPath(projectPath, ".pkg.info");
+    if (Utils::fileExists(pkgInfoPath)) {
+        Utils::logError("Directory '" + projectName + "' is already a PKG project");
         return false;
     }
     
@@ -29,26 +39,28 @@ bool ProjectManager::createProject(const std::string& language) {
     // Create project structure
     Project project;
     project.id = registry.generateProjectId();
-    project.name = folderName;
-    project.path = currentDir;
+    project.name = projectName;
+    project.path = projectPath;
     project.language = language;
     project.defaultDepFolder = store.getDepFolderForLanguage(language);
     project.createdAt = Utils::getCurrentTimestamp();
     
     // Create .pkg.info
-    if (!createPkgInfo(project)) {
+    if (!savePkgInfo(project)) {
         Utils::logError("Failed to create .pkg.info");
         return false;
     }
     
     // Create .pkg.deps
-    if (!createPkgDeps()) {
+    std::string depsPath = Utils::joinPath(projectPath, ".pkg.deps");
+    json emptyDeps = json::object();
+    if (!Utils::writeFile(depsPath, emptyDeps.dump(2))) {
         Utils::logError("Failed to create .pkg.deps");
         return false;
     }
     
     // Create dependency folder
-    std::string depFolder = Utils::joinPath(currentDir, project.defaultDepFolder);
+    std::string depFolder = Utils::joinPath(projectPath, project.defaultDepFolder);
     Utils::createDir(depFolder);
     
     // Register project
@@ -57,7 +69,7 @@ bool ProjectManager::createProject(const std::string& language) {
         return false;
     }
     
-    Utils::logSuccess("Created project '" + project.name + "' (" + language + ")");
+    Utils::logSuccess("Created project '" + project.name + "' (" + language + ") at " + projectPath);
     return true;
 }
 
@@ -161,7 +173,7 @@ bool ProjectManager::openProject(const std::string& nameOrId) {
     
     // Check if editor is set
     if (project.defaultEditor.empty()) {
-        Utils::logError("No default editor set. Use 'pkg editor set <command>' to set one");
+        Utils::logError("No default editor set. Use 'pkt editor set <command>' to set one");
         return false;
     }
     
@@ -169,6 +181,40 @@ bool ProjectManager::openProject(const std::string& nameOrId) {
     std::string command = project.defaultEditor + " " + project.path;
     Utils::logInfo("Opening project: " + project.name);
     
+    return system(command.c_str()) == 0;
+}
+
+bool ProjectManager::runFile(const std::string& filename) {
+    if (!isProjectFolder()) {
+        Utils::logError("Not in a PKG project directory");
+        return false;
+    }
+    
+    Project project = getCurrentProject();
+    std::string filePath = Utils::joinPath(project.path, filename);
+    
+    if (!Utils::fileExists(filePath)) {
+        Utils::logError("File not found: " + filename);
+        return false;
+    }
+    
+    std::string command;
+    if (project.language == "node") {
+        command = "node " + filename;
+    } else if (project.language == "python") {
+        command = "python3 " + filename;
+    } else if (project.language == "ruby") {
+        command = "ruby " + filename;
+    } else if (project.language == "java") {
+        command = "java " + filename;
+    } else if (project.language == "go") {
+        command = "go run " + filename;
+    } else {
+        Utils::logError("Run command not supported for language: " + project.language);
+        return false;
+    }
+    
+    Utils::logInfo("Running: " + command);
     return system(command.c_str()) == 0;
 }
 

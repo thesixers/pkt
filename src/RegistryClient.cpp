@@ -153,6 +153,11 @@ bool RegistryClient::downloadNpmPackage(const std::string& packageName, const st
     std::string pkgJsonPath = Utils::joinPath(destPath, "package.json");
     Utils::writeFile(pkgJsonPath, pkgJson.dump(2));
     
+    // Create a simple index.js entry point
+    std::string indexJsPath = Utils::joinPath(destPath, "index.js");
+    std::string indexJs = "module.exports = { name: '" + packageName + "', version: '" + version + "' };\n";
+    Utils::writeFile(indexJsPath, indexJs);
+    
     return true;
 }
 
@@ -184,6 +189,11 @@ bool RegistryClient::downloadPyPIPackage(const std::string& packageName, const s
     std::string metadataPath = Utils::joinPath(destPath, "PKG-INFO");
     std::string metadata = "Name: " + packageName + "\nVersion: " + version + "\n";
     Utils::writeFile(metadataPath, metadata);
+    
+    // Create __init__.py
+    std::string initPyPath = Utils::joinPath(destPath, "__init__.py");
+    std::string initPy = "__version__ = '" + version + "'\n";
+    Utils::writeFile(initPyPath, initPy);
     
     return true;
 }

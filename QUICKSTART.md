@@ -42,9 +42,12 @@ make -j$(nproc)
 #### 4️⃣ Create a Test Project
 
 ```bash
-mkdir /tmp/test-app && cd /tmp/test-app
-/home/genesix/.gemini/antigravity/scratch/pkg-manager/build/pkt create --language node
+cd /tmp
+/home/genesix/.gemini/antigravity/scratch/pkg-manager/build/pkt create test-app --language node
+cd test-app
 /home/genesix/.gemini/antigravity/scratch/pkg-manager/build/pkt add react@18.3.0
+echo 'const react = require("react"); console.log("React loaded:", !!react);' > index.js
+/home/genesix/.gemini/antigravity/scratch/pkg-manager/build/pkt run index.js
 /home/genesix/.gemini/antigravity/scratch/pkg-manager/build/pkt deps list
 ```
 

@@ -55,12 +55,12 @@ sudo make install
 ### Create a New Project
 
 ```bash
-# Create a Node.js project
-mkdir my-app && cd my-app
-pkg create --language node
+# Create a Node.js project in a new folder
+pkt create my-app --language node
+cd my-app
 
-# Or initialize an existing directory
-pkg init --language python
+# Or initialize current directory
+pkt create --language python
 ```
 
 ### Manage Dependencies
@@ -70,10 +70,13 @@ pkg init --language python
 pkg add react
 
 # Add a specific version
-pkg add fastify@4.27.0
+pkt add fastify@4.27.0
+
+# Run a script
+pkt run server.js
 
 # Remove a dependency
-pkg remove react
+pkt remove react
 
 # Update a dependency
 pkg update fastify@5.0.0
@@ -96,13 +99,13 @@ pkg projects
 pkg search my-app
 
 # Set default editor
-pkg editor set code
+pkt editor set code
 
 # Open project in editor
-pkg open my-app
+pkt open my-app
 
 # Delete a project
-pkg delete my-app
+pkt delete my-app
 ```
 
 ## 📁 Architecture
@@ -150,22 +153,23 @@ my-app/
 
 ### Project Commands
 
-- `pkg create --language <lang>` - Create new project
-- `pkg init --language <lang>` - Initialize existing directory
-- `pkg open <name_or_id>` - Open project in editor
-- `pkg editor set <command>` - Set default editor
-- `pkg editor unset` - Unset default editor
-- `pkg search <query>` - Search projects
-- `pkg projects` - List all projects
-- `pkg delete <name_or_id>` - Delete project
+- `pkt create [name] --language <lang>` - Create new project
+- `pkt init --language <lang>` - Initialize existing directory
+- `pkt open <name_or_id>` - Open project in editor
+- `pkt run <filename>` - Run a script in the current project
+- `pkt editor set <command>` - Set default editor
+- `pkt editor unset` - Unset default editor
+- `pkt search <query>` - Search projects
+- `pkt projects` - List all projects
+- `pkt delete <name_or_id>` - Delete project
 
 ### Dependency Commands
 
-- `pkg add <package>[@<version>]` - Add dependency
-- `pkg remove <package>` - Remove dependency
-- `pkg update <package>[@<version>]` - Update dependency
-- `pkg deps list` - List project dependencies
-- `pkg deps list --global [--lang <lang>] [--all]` - List global dependencies
+- `pkt add <package>[@<version>]` - Add dependency
+- `pkt remove <package>` - Remove dependency
+- `pkt update <package>[@<version>]` - Update dependency
+- `pkt deps list` - List project dependencies
+- `pkt deps list --global [--lang <lang>] [--all]` - List global dependencies
 
 ## 🛠️ Development
 

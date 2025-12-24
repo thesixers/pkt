@@ -15,12 +15,13 @@ public:
     ProjectManager(GlobalRegistry& registry, GlobalStore& store);
     
     // Project lifecycle
-    bool createProject(const std::string& language);
+    bool createProject(const std::string& language, const std::string& name = "");
     bool initProject(const std::string& language);
     bool deleteProject(const std::string& nameOrId);
     
     // Project operations
     bool openProject(const std::string& nameOrId);
+    bool runFile(const std::string& filename);
     bool setEditor(const std::string& editor);
     bool unsetEditor();
     

@@ -28,6 +28,8 @@ int CLI::run(int argc, char* argv[]) {
         return handleInit(args);
     } else if (command == "open") {
         return handleOpen(args);
+    } else if (command == "run") {
+        return handleRun(args);
     } else if (command == "editor") {
         return handleEditor(args);
     } else if (command == "search") {
@@ -64,12 +66,17 @@ int CLI::handleCreate(const std::vector<std::string>& args) {
     
     if (language.empty()) {
         Utils::logError("Language not specified");
-        std::cout << "Usage: pkg create --language <language>\n";
+        std::cout << "Usage: pkt create <name> --language <language>\n";
         std::cout << "Supported: node, python, ruby, java, go\n";
         return 1;
     }
     
-    return projectMgr.createProject(language) ? 0 : 1;
+    std::string name = "";
+    if (!args.empty() && args[0].find("--") != 0) {
+        name = args[0];
+    }
+    
+    return projectMgr.createProject(language, name) ? 0 : 1;
 }
 
 int CLI::handleInit(const std::vector<std::string>& args) {
@@ -91,11 +98,21 @@ int CLI::handleInit(const std::vector<std::string>& args) {
 int CLI::handleOpen(const std::vector<std::string>& args) {
     if (args.empty()) {
         Utils::logError("Project name or ID not specified");
-        std::cout << "Usage: pkg open <project_name_or_id>\n";
+        std::cout << "Usage: pkt open <project_name_or_id>\n";
         return 1;
     }
     
     return projectMgr.openProject(args[0]) ? 0 : 1;
+}
+
+int CLI::handleRun(const std::vector<std::string>& args) {
+    if (args.empty()) {
+        Utils::logError("File to run not specified");
+        std::cout << "Usage: pkt run <filename>\n";
+        return 1;
+    }
+    
+    return projectMgr.runFile(args[0]) ? 0 : 1;
 }
 
 int CLI::handleEditor(const std::vector<std::string>& args) {
@@ -221,14 +238,15 @@ USAGE:
     pkt <command> [options]
 
 PROJECT COMMANDS:
-    create --language <lang>     Create a new project in current directory
-    init --language <lang>       Initialize existing directory as project
-    open <name_or_id>           Open project in default editor
-    editor set <command>        Set default editor for current project
-    editor unset                Unset default editor
-    search <query>              Search for projects
-    projects                    List all registered projects
-    delete <name_or_id>         Delete a project
+    create [name] --language <lang>  Create a new project
+    init --language <lang>           Initialize existing directory as project
+    open <name_or_id>               Open project in default editor
+    run <filename>                  Run a script in the current project
+    editor set <command>            Set default editor for current project
+    editor unset                    Unset default editor
+    search <query>                  Search for projects
+    projects                        List all registered projects
+    delete <name_or_id>             Delete a project
 
 DEPENDENCY COMMANDS:
     add <package>[@<version>]   Add a dependency to current project
@@ -242,14 +260,13 @@ SUPPORTED LANGUAGES:
     node, python, ruby, java, go
 
 EXAMPLES:
-    pkt create --language node
+    pkt create my-app --language node
     pkt add react@18.3.0
-    pkt add fastify
+    pkt run server.js
     pkt deps list
     pkt open my-project
-    pkt editor set code
 
-For more information, visit: https://github.com/yourusername/pkt
+For more information, visit: https://github.com/thesixers/pkt
 )";
 }
 
