@@ -163,11 +163,33 @@ bool DependencyManager::addDependencyRecursive(const std::string& language,
         Utils::logInfo("Installed sub-dependency: " + packageName + "@" + resolvedVersion);
     }
     
-    // Recursive resolution: fetch sub-dependencies
-    auto subDeps = client.getDependencies(language, packageName, resolvedVersion);
-    for (const auto& pair : subDeps) {
-        if (!addDependencyRecursive(language, pair.first, pair.second, depFolder, false)) {
-            Utils::logWarning("Failed to install sub-dependency: " + pair.first);
+    // Recursive resolution: fetch sub-dependencies from the actual package.json in the store
+    std::string packagePath = store.getPackagePath(language, packageName, resolvedVersion);
+    std::string pkgJsonPath = Utils::joinPath(packagePath, "package.json");
+    
+    if (language == "node" && Utils::fileExists(pkgJsonPath)) {
+        try {
+            json pkgJson = json::parse(Utils::readFile(pkgJsonPath));
+            if (pkgJson.contains("dependencies")) {
+                const auto& subDeps = pkgJson["dependencies"];
+                
+                // Create node_modules folder inside the package's store directory
+                std::string storeNodeModules = Utils::joinPath(packagePath, "node_modules");
+                Utils::createDirRecursive(storeNodeModules);
+                
+                for (auto it = subDeps.begin(); it != subDeps.end(); ++it) {
+                    std::string subName = it.key();
+                    std::string subVersionSpec = it.value().get<std::string>();
+                    
+                    // Install sub-dependency recursively
+                    // Note: depFolder for sub-dependencies is the node_modules folder inside the package's store dir
+                    if (!addDependencyRecursive(language, subName, subVersionSpec, storeNodeModules, false)) {
+                        Utils::logWarning("Failed to install sub-dependency: " + subName);
+                    }
+                }
+            }
+        } catch (const std::exception& e) {
+            Utils::logWarning("Failed to parse package.json for " + packageName + ": " + e.what());
         }
     }
     
@@ -281,14 +303,21 @@ bool DependencyManager::createSymlink(const std::string& packageName, const std:
     
     std::string target = packagePath;
     if (!entryPoint.empty()) {
-        target = Utils::joinPath(packagePath, entryPoint);
+        // If it's a relative path starting with ./, remove it
+        std::string cleanEntryPoint = entryPoint;
+        if (cleanEntryPoint.size() >= 2 && cleanEntryPoint.substr(0, 2) == "./") {
+            cleanEntryPoint = cleanEntryPoint.substr(2);
+        }
+        target = Utils::joinPath(packagePath, cleanEntryPoint);
     }
     
-    std::string link = Utils::joinPath({Utils::getCurrentDir(), depFolder, packageName});
-    
-    // For Node.js, if we link a file, we should probably keep the name but Node.js 
-    // expects node_modules/pkg to be the entry point.
-    // If target is a file, the symlink 'link' will point to that file.
+    // depFolder can be an absolute path (for sub-deps in store) or relative (for project deps)
+    std::string link;
+    if (Utils::isAbsolutePath(depFolder)) {
+        link = Utils::joinPath(depFolder, packageName);
+    } else {
+        link = Utils::joinPath({Utils::getCurrentDir(), depFolder, packageName});
+    }
     
     // Remove existing symlink if present
     if (Utils::isSymlink(link)) {

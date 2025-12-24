@@ -30,6 +30,7 @@ public:
     // Symlink operations
     static bool createSymlink(const std::string& target, const std::string& link);
     static bool isSymlink(const std::string& path);
+    static bool isAbsolutePath(const std::string& path);
     static bool removeSymlink(const std::string& path);
     
     // JSON file operations

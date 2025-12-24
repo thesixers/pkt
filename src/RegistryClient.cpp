@@ -169,6 +169,31 @@ std::string RegistryClient::getEntryPoint(const std::string& language, const std
                 std::string content = Utils::readFile(pkgJsonPath);
                 if (!content.empty()) {
                     json pkgJson = json::parse(content);
+                    
+                    // 1. Check exports map (modern Node.js)
+                    if (pkgJson.contains("exports")) {
+                        const auto& exports = pkgJson["exports"];
+                        if (exports.is_string()) {
+                            return exports.get<std::string>();
+                        } else if (exports.is_object()) {
+                            // Check for root export "."
+                            if (exports.contains(".")) {
+                                const auto& root = exports["."];
+                                if (root.is_string()) {
+                                    return root.get<std::string>();
+                                } else if (root.is_object()) {
+                                    if (root.contains("import")) return root["import"].get<std::string>();
+                                    if (root.contains("require")) return root["require"].get<std::string>();
+                                    if (root.contains("default")) return root["default"].get<std::string>();
+                                }
+                            }
+                            // Fallback: check for "import" or "require" at top level of exports
+                            if (exports.contains("import")) return exports["import"].get<std::string>();
+                            if (exports.contains("require")) return exports["require"].get<std::string>();
+                        }
+                    }
+                    
+                    // 2. Check main field
                     if (pkgJson.contains("main")) {
                         return pkgJson["main"].get<std::string>();
                     }
