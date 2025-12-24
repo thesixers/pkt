@@ -45,6 +45,11 @@ private:
     bool removeSymlink(const std::string& packageName, const std::string& depFolder);
     std::string resolveVersion(const std::string& language, const std::string& packageName, 
                               const std::string& requestedVersion);
+    bool addDependencyRecursive(const std::string& language, 
+                               const std::string& packageName,
+                               const std::string& version,
+                               const std::string& depFolder,
+                               bool isDirect);
 };
 
 } // namespace pkg

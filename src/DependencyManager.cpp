@@ -3,7 +3,11 @@
 #include <iostream>
 #include <fstream>
 
+#include <nlohmann/json.hpp>
+
 namespace pkg {
+
+using json = nlohmann::json;
 
 DependencyManager::DependencyManager(GlobalRegistry& registry, GlobalStore& store, 
                                      RegistryClient& client)
