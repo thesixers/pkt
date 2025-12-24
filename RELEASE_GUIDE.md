@@ -27,7 +27,7 @@ git commit -m "Initial commit: PKT v1.0.0
 - 2,241 lines of C++ code"
 
 # Add your GitHub repository (replace YOUR_USERNAME)
-git remote add origin https://github.com/YOUR_USERNAME/pkt.git
+git remote add origin https://github.com/thesixers/pkt.git
 
 # Push to GitHub
 git branch -M main
@@ -76,7 +76,7 @@ First public release of PKT! 🎉
 ### Linux
 
 ```bash
-curl -L https://github.com/YOUR_USERNAME/pkt/releases/download/v1.0.0/pkt-linux-x86_64 -o pkt
+curl -L https://github.com/thesixers/pkt/releases/download/v1.0.0/pkt-linux-x86_64 -o pkt
 chmod +x pkt
 sudo mv pkt /usr/local/bin/pkt
 ```
@@ -92,11 +92,11 @@ pkt deps list
 
 ## Documentation
 
-- [README](https://github.com/YOUR_USERNAME/pkt#readme)
-- [Architecture](https://github.com/YOUR_USERNAME/pkt/blob/main/ARCHITECTURE.md)
-- [Examples](https://github.com/YOUR_USERNAME/pkt/blob/main/EXAMPLES.md)
+- [README](https://github.com/thesixers/pkt#readme)
+- [Architecture](https://github.com/thesixers/pkt/blob/main/ARCHITECTURE.md)
+- [Examples](https://github.com/thesixers/pkt/blob/main/EXAMPLES.md)
 
-Full changelog: [CHANGELOG.md](https://github.com/YOUR_USERNAME/pkt/blob/main/CHANGELOG.md)
+Full changelog: [CHANGELOG.md](https://github.com/thesixers/pkt/blob/main/CHANGELOG.md)
 
 ````
 
@@ -128,7 +128,7 @@ git push
 Test the one-line installer:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/pkt/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/thesixers/pkt/main/install.sh | bash
 ```
 
 ## Done! 🎉

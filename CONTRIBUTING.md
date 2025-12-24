@@ -35,7 +35,7 @@ We love new ideas! Open an issue with:
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/pkt.git
+git clone https://github.com/thesixers/pkt.git
 cd pkt
 
 # Build

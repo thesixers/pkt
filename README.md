@@ -1,4 +1,8 @@
-# PKG - Universal C++ Package Manager
+# PKT - Universal C++ Package Manager
+
+![Build Status](https://github.com/thesixers/pkt/workflows/Build%20PKT/badge.svg)
+![GitHub release](https://img.shields.io/github/v/release/thesixers/pkt)
+![License](https://img.shields.io/github/license/thesixers/pkt)
 
 A cross-platform CLI package manager written in C++ that provides unified dependency management across multiple programming languages with a global store architecture and symlink-based project dependencies.
 
@@ -38,8 +42,8 @@ Install Visual Studio with C++ support and CMake.
 ### Build from Source
 
 ```bash
-git clone https://github.com/yourusername/pkg-manager.git
-cd pkg-manager
+git clone https://github.com/thesixers/pkt.git
+cd pkt
 mkdir build && cd build
 cmake ..
 make

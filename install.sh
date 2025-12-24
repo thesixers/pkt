@@ -49,7 +49,7 @@ echo "📦 Detected: $OS ($ARCH)"
 echo "📥 Downloading PKT..."
 
 # Download latest release
-GITHUB_REPO="YOUR_USERNAME/pkt"  # Replace with actual repo
+GITHUB_REPO="thesixers/pkt"
 DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${BINARY}"
 
 if command -v curl &> /dev/null; then

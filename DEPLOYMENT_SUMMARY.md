@@ -50,7 +50,7 @@ Follow these steps to make PKT publicly available:
 
 ```bash
 cd /home/genesix/.gemini/antigravity/scratch/pkg-manager
-git remote add origin https://github.com/YOUR_USERNAME/pkt.git
+git remote add origin https://github.com/thesixers/pkt.git
 git commit -m "Initial commit: PKT v1.0.0"
 git branch -M main
 git push -u origin main
@@ -71,7 +71,7 @@ git push -u origin main
 ### 5. Test (5 min)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/pkt/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/thesixers/pkt/main/install.sh | bash
 ```
 
 **See RELEASE_GUIDE.md for detailed instructions!**

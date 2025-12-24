@@ -37,4 +37,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CMake build system
 - GitHub Actions CI/CD
 
-[1.0.0]: https://github.com/YOUR_USERNAME/pkt/releases/tag/v1.0.0
+[1.0.0]: https://github.com/thesixers/pkt/releases/tag/v1.0.0
