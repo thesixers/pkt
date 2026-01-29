@@ -8,6 +8,7 @@ import (
 // PackageManager defines the interface for package manager operations
 type PackageManager interface {
 	Add(workDir, pkg string, flags []string) error
+	AddMultiple(workDir string, packages []string, flags []string) error
 	Remove(workDir, pkg string) error
 	Init(workDir string) error
 	IsAvailable() bool

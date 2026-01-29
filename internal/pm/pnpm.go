@@ -32,6 +32,23 @@ func (p *PNPM) Add(workDir, pkg string, flags []string) error {
 	return nil
 }
 
+func (p *PNPM) AddMultiple(workDir string, packages []string, flags []string) error {
+	args := []string{"add"}
+	args = append(args, packages...)
+	args = append(args, flags...)
+
+	cmd := exec.Command("pnpm", args...)
+	cmd.Dir = workDir
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("pnpm add failed: %w", err)
+	}
+
+	return nil
+}
+
 func (p *PNPM) Remove(workDir, pkg string) error {
 	cmd := exec.Command("pnpm", "remove", pkg)
 	cmd.Dir = workDir

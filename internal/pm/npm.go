@@ -32,6 +32,23 @@ func (n *NPM) Add(workDir, pkg string, flags []string) error {
 	return nil
 }
 
+func (n *NPM) AddMultiple(workDir string, packages []string, flags []string) error {
+	args := []string{"install"}
+	args = append(args, packages...)
+	args = append(args, flags...)
+
+	cmd := exec.Command("npm", args...)
+	cmd.Dir = workDir
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("npm install failed: %w", err)
+	}
+
+	return nil
+}
+
 func (n *NPM) Remove(workDir, pkg string) error {
 	cmd := exec.Command("npm", "uninstall", pkg)
 	cmd.Dir = workDir
