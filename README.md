@@ -1,237 +1,220 @@
-# pkt
+# pkt (Project Kit)
 
-`pkt` is a cross-platform project manager and dependency tracker for
-JavaScript/Node.js projects.\
-It organizes your projects, tracks dependencies, and abstracts package
-manager differences while staying out of your way.
+A cross-platform project manager and dependency tracker for JavaScript/Node.js projects.
 
-------------------------------------------------------------------------
+**pkt (Project Kit)** organizes your projects, tracks dependencies, and abstracts package manager differences — all from a single, unified CLI.
 
-## Why pkt?
+## Features
 
-Modern JS projects use different package managers (`pnpm`, `npm`,
-`bun`), each with different commands and behaviors.\
-`pkt` sits on top of them and gives you:
+- 🗂️ **Centralized workspace** — All projects live in one configurable folder
+- 🔄 **Package manager agnostic** — Works with pnpm, npm, and bun seamlessly
+- 📦 **Dependency tracking** — Database-backed tracking of all project dependencies
+- 🆔 **Unique project IDs** — No more name conflicts, reference projects by ID
+- 🚀 **Batch operations** — Add multiple packages in a single command
 
--   One place for **all projects**
--   One command set for **all package managers**
--   Accurate dependency tracking via `package.json`
--   Safe, predictable project management
--   A foundation for future GUI tools
+## Quick Start
 
-------------------------------------------------------------------------
-
-## Core Concepts
-
-### Projects Root
-
-All projects live inside **one root folder** chosen during setup.
-
-### Project Identity
-
-Each project has: - A **unique ID** - A name (duplicates allowed) - A
-filesystem path - A project-specific package manager
-
-Internally, `pkt` always uses the **project ID**.
-
-------------------------------------------------------------------------
-
-## First-Time Setup
-
-You **must run this first**:
-
-``` bash
+```bash
+# First-time setup (required)
 pkt start
+
+# Create a new project
+pkt create my-app
+
+# Or initialize an existing project
+pkt init /path/to/existing-project
+
+# Add dependencies
+cd my-app
+pkt add react react-dom
+pkt add -D typescript eslint
+
+# Install all dependencies from package.json
+pkt install
 ```
 
-You will be prompted for: - Projects root folder (default:
-`~/Documents/workspace`) - Default package manager (pnpm) - Code editor
-command (e.g. `code`)
+## Installation
 
-This creates:
+```bash
+# Build from source
+go build -o pkt .
 
-    ~/.pkt/config.json
+# Move to PATH
+sudo mv pkt /usr/local/bin/
+```
 
-No other command works before this step.
+**Requirements:**
 
-------------------------------------------------------------------------
+- Go 1.24+
+- PostgreSQL
+- One of: pnpm, npm, or bun
 
 ## Commands
 
 ### Setup
 
-#### `pkt start`
-
-Initializes pkt and stores configuration.
-
-------------------------------------------------------------------------
+| Command     | Description                               |
+| ----------- | ----------------------------------------- |
+| `pkt start` | Initialize pkt configuration and database |
 
 ### Project Management
 
-#### `pkt create <project-name>`
-
-Creates a new project folder inside the projects root and tracks it.
-
-``` bash
-pkt create music-app
-```
-
--   No scaffolding
--   No `package.json` created yet
--   Project is assigned an ID
-
-------------------------------------------------------------------------
-
-#### `pkt open <project | id | .>`
-
-Opens a project in your configured editor.
-
-``` bash
-pkt open music-app
-pkt open pkt-01HJ9KJQ8D
-pkt open .
-```
-
-If multiple projects share the same name, pkt will prompt you to select
-one.
-
-------------------------------------------------------------------------
-
-#### `pkt list`
-
-Lists all tracked projects.
-
-Shows: - Name - ID - Package manager - Path
-
-------------------------------------------------------------------------
-
-#### `pkt delete <project | id>`
-
-Deletes a project folder and removes it from the database.
-
-``` bash
-pkt delete music-app
-```
-
-------------------------------------------------------------------------
+| Command                | Description                                     |
+| ---------------------- | ----------------------------------------------- |
+| `pkt create <name>`    | Create a new empty project in workspace         |
+| `pkt init [path]`      | Initialize an existing project for pkt tracking |
+| `pkt list`             | List all tracked projects                       |
+| `pkt open <project>`   | Open project in configured editor               |
+| `pkt delete <project>` | Delete project from filesystem and database     |
 
 ### Dependency Management
 
-> Important: Dependency commands **must be run inside a project
-> folder**.
+> **Note:** These commands must be run inside a tracked project folder.
 
-------------------------------------------------------------------------
+| Command               | Description                                |
+| --------------------- | ------------------------------------------ |
+| `pkt add <pkg...>`    | Add one or more dependencies               |
+| `pkt add -D <pkg...>` | Add as dev dependencies                    |
+| `pkt remove <pkg>`    | Remove a dependency                        |
+| `pkt install`         | Install all dependencies from package.json |
+| `pkt deps [project]`  | List project dependencies                  |
 
-#### `pkt add <package>`
+### Package Manager
 
-Adds a dependency using the project's package manager.
+| Command                     | Description                          |
+| --------------------------- | ------------------------------------ |
+| `pkt pm set <pm> <project>` | Change package manager for a project |
 
-``` bash
-pkt add axios
-pkt add -D nodemon
+### Configuration
+
+| Command                   | Description                        |
+| ------------------------- | ---------------------------------- |
+| `pkt config`              | Show current configuration         |
+| `pkt config editor <cmd>` | Change editor (e.g., code, cursor) |
+| `pkt config pm <pm>`      | Change default package manager     |
+
+## Command Details
+
+### `pkt start`
+
+First-time setup wizard. Configures:
+
+- Projects root folder (default: `~/Documents/workspace`)
+- Default package manager (pnpm)
+- Code editor command (e.g., `code`, `cursor`)
+
+Creates `~/.pkt/config.json` and initializes the database.
+
+### `pkt init [path]`
+
+Initialize an existing project for pkt management.
+
+```bash
+pkt init .                        # Current directory
+pkt init /path/to/my-project      # Specific project
 ```
 
-Behavior: - Ensures you are inside a managed project - Creates
-`package.json` lazily if missing - Uses the correct PM command - Syncs
-dependencies into the database
+**Behavior:**
 
-------------------------------------------------------------------------
+- Reads `package.json` for project name
+- Auto-detects package manager from lockfiles
+- Moves project to workspace if outside it
+- Syncs all dependencies to database
 
-#### `pkt remove <package>`
+### `pkt install`
 
-Removes a dependency.
+Install all dependencies from `package.json`.
 
-``` bash
-pkt remove axios
+```bash
+cd my-project
+pkt install
 ```
 
-------------------------------------------------------------------------
+**Behavior:**
 
-#### `pkt deps [project | id | .]`
+- Separates prod and dev dependencies
+- Uses project's configured package manager
+- Syncs installed versions to database
 
-Lists dependencies for a project.
+### `pkt add <packages...>`
 
-``` bash
-pkt deps
-pkt deps music-app
-pkt deps pkt-01HJ9KJQ8D
+Add one or more packages to the current project.
+
+```bash
+pkt add axios                     # Single package
+pkt add axios lodash express      # Multiple packages
+pkt add -D typescript eslint      # Dev dependencies
 ```
 
-Always reads from `package.json` and syncs DB first.
+### Project Resolution
 
-------------------------------------------------------------------------
+Commands that accept `<project>` support multiple formats:
 
-### Package Manager Control
-
-#### `pkt pm set <pm> <project | id | .>`
-
-Changes the package manager for a project.
-
-``` bash
-pkt pm set npm music-app
-pkt pm set bun .
+```bash
+pkt open my-app                   # By name
+pkt open 01HJ9KJQ8D0XQZP2M3N4K5   # By ID
+pkt open .                        # Current directory
 ```
 
-What happens: - Project is resolved by name, ID, or current folder - PM
-availability is checked - Database is updated - `package.json` scripts
-are rewritten using filesystem access - Dependencies are re-synced
-
-------------------------------------------------------------------------
+If multiple projects share the same name, pkt prompts you to choose.
 
 ## Supported Package Managers
 
-  PM     Add             Remove            Init
-  ------ --------------- ----------------- ----------------
-  pnpm   `pnpm add`      `pnpm remove`     `pnpm init -y`
-  npm    `npm install`   `npm uninstall`   `npm init -y`
-  bun    `bun add`       `bun remove`      `bun init`
+| PM   | Add           | Remove          | Init           |
+| ---- | ------------- | --------------- | -------------- |
+| pnpm | `pnpm add`    | `pnpm remove`   | `pnpm init -y` |
+| npm  | `npm install` | `npm uninstall` | `npm init -y`  |
+| bun  | `bun add`     | `bun remove`    | `bun init`     |
 
-Commands are resolved through an internal PM registry.
+## Configuration
 
-------------------------------------------------------------------------
+Configuration is stored in `~/.pkt/config.json`:
 
-## Safety Rules
+```json
+{
+  "projects_root": "~/Documents/workspace",
+  "default_pm": "pnpm",
+  "editor": "code",
+  "initialized": true,
+  "db_user": "pkt",
+  "db_name": "pkt_db"
+}
+```
 
--   `pkt` **only modifies `package.json`**
--   Never touches source files or configs
--   Database is always synced from `package.json`
--   `add` / `remove` only work inside project folders
--   Duplicate project names are always resolved interactively
+## Database
 
-------------------------------------------------------------------------
+pkt uses PostgreSQL to track:
 
-## Architecture Overview
+- Projects (ID, name, path, package manager)
+- Dependencies (name, version, type per project)
 
--   Language: **Go**
--   Database: **PostgreSQL**
--   CLI Framework: **Cobra**
--   PM abstraction via command registry
--   File-system operations are isolated and safe
+The database is always synced from `package.json` — the source of truth.
 
-------------------------------------------------------------------------
+## Architecture
 
-## GUI Support
+- **Language:** Go
+- **CLI Framework:** Cobra
+- **Database:** PostgreSQL
+- **ID Generation:** ULID
 
-`pkt` is CLI-first but **GUI-ready**.
+```
+pkt/
+├── cmd/          # CLI commands
+├── internal/
+│   ├── config/   # Configuration management
+│   ├── db/       # Database operations
+│   ├── pm/       # Package manager abstraction
+│   └── utils/    # Utilities (fs, package.json, etc.)
+└── main.go
+```
 
-A GUI can: - Call `pkt` commands - Read project/dependency data from
-DB - Avoid re-implementing logic
+## Safety
 
-------------------------------------------------------------------------
+- pkt **only modifies** `package.json`
+- Never touches source files or configs
+- Database always syncs from filesystem
+- Duplicate names resolved interactively
 
-## Future Ideas
+## License
 
--   PM plugins via JSON
--   Project health checks
--   Background sync watcher
--   GUI dashboard
--   Remote project metadata
-
-------------------------------------------------------------------------
-
-## Summary
-
-`pkt` is opinionated where it matters and flexible where it counts.
-
-If you manage multiple JS projects, switch package managers, or want
-order without friction --- `pkt` is built for you.
+MIT
