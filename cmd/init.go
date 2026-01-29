@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -52,28 +51,15 @@ Examples:
 			return fmt.Errorf("path is not a directory: %s", absPath)
 		}
 
-		// Check for package.json
+		// Check for package.json (required for Node.js project verification)
 		pkgJSONPath := filepath.Join(absPath, "package.json")
 		if _, err := os.Stat(pkgJSONPath); os.IsNotExist(err) {
 			return fmt.Errorf("no package.json found in %s\nThis command requires an existing Node.js project", absPath)
 		}
 
-		// Read package.json to get project name
-		pkgData, err := os.ReadFile(pkgJSONPath)
-		if err != nil {
-			return fmt.Errorf("failed to read package.json: %w", err)
-		}
-
-		var pkg utils.PackageJSON
-		if err := json.Unmarshal(pkgData, &pkg); err != nil {
-			return fmt.Errorf("failed to parse package.json: %w", err)
-		}
-
-		// Get project name from package.json or folder name
-		projectName := pkg.Name
-		if projectName == "" {
-			projectName = filepath.Base(absPath)
-		}
+		// Get project name from directory name (not package.json)
+		// This ensures the name matches the path
+		projectName := filepath.Base(absPath)
 
 		// Detect package manager from lockfiles
 		pm := detectPackageManager(absPath)
