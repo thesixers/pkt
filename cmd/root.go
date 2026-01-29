@@ -58,4 +58,7 @@ func init() {
 	rootCmd.AddCommand(removeCmd)
 	rootCmd.AddCommand(depsCmd)
 	rootCmd.AddCommand(pmCmd)
+	rootCmd.AddCommand(searchCmd)
+	rootCmd.AddCommand(renameCmd)
 }
+

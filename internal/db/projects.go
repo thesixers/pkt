@@ -209,3 +209,27 @@ func UpdateProjectPM(id, pm string) error {
 
 	return nil
 }
+
+// RenameProject updates the name of a project
+func RenameProject(id, newName string) error {
+	if DB == nil {
+		return fmt.Errorf("database not connected")
+	}
+
+	query := `UPDATE projects SET name = $1 WHERE id = $2`
+	result, err := DB.Exec(query, newName, id)
+	if err != nil {
+		return fmt.Errorf("failed to rename project: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("project not found")
+	}
+
+	return nil
+}

@@ -338,4 +338,66 @@ func TestDatabaseNotConnected(t *testing.T) {
 	if err == nil || err.Error() != "database not connected" {
 		t.Errorf("Expected 'database not connected' error, got: %v", err)
 	}
+
+	err = RenameProject("X", "y")
+	if err == nil || err.Error() != "database not connected" {
+		t.Errorf("Expected 'database not connected' error, got: %v", err)
+	}
 }
+
+func TestRenameProject(t *testing.T) {
+	setupTestDB(t)
+	defer teardownTestDB(t)
+
+	// Create a project
+	_, err := CreateProject("RENAME001", "old-name", "/tmp/rename-test", "pnpm")
+	if err != nil {
+		t.Fatalf("Failed to create project: %v", err)
+	}
+
+	// Rename the project
+	err = RenameProject("RENAME001", "new-name")
+	if err != nil {
+		t.Fatalf("Failed to rename project: %v", err)
+	}
+
+	// Verify the rename
+	project, err := GetProjectByID("RENAME001")
+	if err != nil {
+		t.Fatalf("Failed to get project: %v", err)
+	}
+
+	if project.Name != "new-name" {
+		t.Errorf("Expected Name 'new-name', got '%s'", project.Name)
+	}
+
+	// Verify old name no longer works
+	projects, err := GetProjectsByName("old-name")
+	if err != nil {
+		t.Fatalf("Failed to query by old name: %v", err)
+	}
+	if len(projects) != 0 {
+		t.Errorf("Expected 0 projects with old name, got %d", len(projects))
+	}
+
+	// Verify new name works
+	projects, err = GetProjectsByName("new-name")
+	if err != nil {
+		t.Fatalf("Failed to query by new name: %v", err)
+	}
+	if len(projects) != 1 {
+		t.Errorf("Expected 1 project with new name, got %d", len(projects))
+	}
+}
+
+func TestRenameProjectNotFound(t *testing.T) {
+	setupTestDB(t)
+	defer teardownTestDB(t)
+
+	// Try to rename non-existent project
+	err := RenameProject("NONEXISTENT", "new-name")
+	if err == nil {
+		t.Error("Expected error when renaming non-existent project, got nil")
+	}
+}
+
