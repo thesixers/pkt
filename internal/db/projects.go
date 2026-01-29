@@ -233,3 +233,27 @@ func RenameProject(id, newName string) error {
 
 	return nil
 }
+
+// RenameProjectWithPath updates both the name and path of a project
+func RenameProjectWithPath(id, newName, newPath string) error {
+	if DB == nil {
+		return fmt.Errorf("database not connected")
+	}
+
+	query := `UPDATE projects SET name = $1, path = $2 WHERE id = $3`
+	result, err := DB.Exec(query, newName, newPath, id)
+	if err != nil {
+		return fmt.Errorf("failed to rename project: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("project not found")
+	}
+
+	return nil
+}
