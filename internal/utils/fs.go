@@ -61,19 +61,24 @@ func IsInsideProject(db interface{}, currentPath string) (bool, string, error) {
 	return false, "", nil
 }
 
-// ExpandPath expands ~ in paths to home directory
+// ExpandPath expands ~ in paths to home directory and converts to absolute path
 func ExpandPath(path string) (string, error) {
 	if len(path) == 0 {
 		return path, nil
 	}
 
-	if path[:2] == "~/" {
+	// Handle ~ prefix (both "~" alone and "~/...")
+	if path == "~" {
+		return os.UserHomeDir()
+	}
+	if len(path) >= 2 && path[:2] == "~/" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("failed to get home directory: %w", err)
 		}
-		return filepath.Join(home, path[2:]), nil
+		path = filepath.Join(home, path[2:])
 	}
 
-	return path, nil
+	// Always return absolute path to ensure consistent comparisons
+	return filepath.Abs(path)
 }

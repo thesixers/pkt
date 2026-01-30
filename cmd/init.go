@@ -87,7 +87,15 @@ Examples:
 			return fmt.Errorf("failed to expand projects root: %w", err)
 		}
 
-		if !strings.HasPrefix(absPath, projectsRoot) {
+		// Ensure both paths are clean for proper comparison
+		projectsRoot = filepath.Clean(projectsRoot)
+		cleanAbsPath := filepath.Clean(absPath)
+
+		// Check if already inside workspace (add trailing separator for proper prefix check)
+		insideWorkspace := strings.HasPrefix(cleanAbsPath, projectsRoot+string(filepath.Separator)) ||
+			cleanAbsPath == projectsRoot
+
+		if !insideWorkspace {
 			fmt.Printf("📦 Project is outside pkt workspace, moving to %s...\n", projectsRoot)
 
 			// Get unique folder name
@@ -95,6 +103,11 @@ Examples:
 			targetPath, err = getUniqueFolder(targetPath)
 			if err != nil {
 				return fmt.Errorf("failed to find unique folder name: %w", err)
+			}
+
+			// Verify destination is not inside source (prevents infinite recursion)
+			if strings.HasPrefix(targetPath, absPath+string(filepath.Separator)) {
+				return fmt.Errorf("cannot move project: destination %s is inside source %s - please check your projectsRoot config", targetPath, absPath)
 			}
 
 			// Move the project
