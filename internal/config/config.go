@@ -9,15 +9,10 @@ import (
 
 // Config represents the pkt configuration
 type Config struct {
-	ProjectsRoot   string `json:"projects_root"`
-	DefaultPM      string `json:"default_pm"`
-	EditorCommand  string `json:"editor"`
-	Initialized    bool   `json:"initialized"`
-	DBUser         string `json:"db_user,omitempty"`
-	DBPassword     string `json:"db_password,omitempty"`
-	DBName         string `json:"db_name,omitempty"`
-	DBHost         string `json:"db_host,omitempty"`
-	DBPort         string `json:"db_port,omitempty"`
+	ProjectsRoot  string `json:"projects_root"`
+	DefaultPM     string `json:"default_pm"`
+	EditorCommand string `json:"editor"`
+	Initialized   bool   `json:"initialized"`
 }
 
 // configPath returns the path to the config file

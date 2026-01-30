@@ -38,7 +38,8 @@ This must be run before using any other pkt commands.`,
 				fmt.Printf("  Default PM: %s\n", cfg.DefaultPM)
 				fmt.Printf("  Editor: %s\n", cfg.EditorCommand)
 				fmt.Println("\nConfig file: ~/.pkt/config.json")
-				fmt.Println("\nTo reconfigure, delete ~/.pkt/config.json and run 'pkt start' again.")
+				fmt.Println("Database: ~/.pkt/pkt.db")
+				fmt.Println("\nTo reconfigure, delete ~/.pkt/ and run 'pkt start' again.")
 				return nil
 			}
 		}
@@ -55,7 +56,7 @@ This must be run before using any other pkt commands.`,
 		pnpmAvailable := checkTool("pnpm")
 		if !pnpmAvailable {
 			fmt.Println("  ⚠️  pnpm not detected")
-			
+
 			// Confirm installation
 			var shouldInstall bool
 			prompt := &survey.Confirm{
@@ -91,88 +92,8 @@ This must be run before using any other pkt commands.`,
 			return fmt.Errorf("failed to get home directory: %w", err)
 		}
 		defaultRoot := filepath.Join(home, "Documents", "workspace")
-		
-		// Set defaults for initial DB check
-		projectsRoot = defaultRoot
-		defaultPM = "pnpm"
-		editorCmd = "code"
 
-		// Step 3: Check PostgreSQL
-		fmt.Println("\n🗄️  Checking PostgreSQL...")
-		
-		// Setup default config for connection test
-		// Use environment variables if set, otherwise use defaults
-		cfg := &config.Config{
-			ProjectsRoot:  projectsRoot,
-			DefaultPM:     defaultPM,
-			EditorCommand: editorCmd,
-			// Default DB settings
-			DBUser:     getEnv("PKT_DB_USER", "pkt_user"),
-			DBPassword: getEnv("PKT_DB_PASSWORD", "yourpassword"),
-			DBName:     getEnv("PKT_DB_NAME", "pkt_db"),
-			DBHost:     getEnv("PKT_DB_HOST", "127.0.0.1"),
-			DBPort:     getEnv("PKT_DB_PORT", "5432"),
-		}
-		db.SetConfig(cfg)
-
-		if err := db.TestConnection(); err != nil {
-			// Check if it's an authentication error
-			if strings.Contains(err.Error(), "authentication failed") || strings.Contains(err.Error(), "password authentication failed") {
-				fmt.Println("  ⚠️  PostgreSQL authentication failed.")
-				
-				var autoFix bool
-				prompt := &survey.Confirm{
-					Message: "Would you like to automatically create the 'pkt_user' and 'pkt_db'? (Requires sudo)",
-					Default: true,
-				}
-				if err := survey.AskOne(prompt, &autoFix); err != nil {
-					return fmt.Errorf("cancelled: %w", err)
-				}
-
-				if autoFix {
-					fmt.Println("\n  🔧 Setting up database...")
-					// Create user
-					createUserCmd := exec.Command("sudo", "-u", "postgres", "psql", "-c", 
-						"DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'pkt_user') THEN CREATE ROLE pkt_user WITH LOGIN PASSWORD 'yourpassword'; END IF; END $$;")
-					createUserCmd.Stdout = os.Stdout
-					createUserCmd.Stderr = os.Stderr
-					if err := createUserCmd.Run(); err != nil {
-						return fmt.Errorf("failed to create database user: %w", err)
-					}
-
-					// Create database
-					// First check if it exists
-					checkDbCmd := exec.Command("sudo", "-u", "postgres", "psql", "-tAc", "SELECT 1 FROM pg_database WHERE datname='pkt_db'")
-					output, _ := checkDbCmd.Output()
-					if strings.TrimSpace(string(output)) != "1" {
-						createDbCmd := exec.Command("sudo", "-u", "postgres", "psql", "-c", "CREATE DATABASE pkt_db OWNER pkt_user")
-						createDbCmd.Stdout = os.Stdout
-						createDbCmd.Stderr = os.Stderr
-						if err := createDbCmd.Run(); err != nil {
-							return fmt.Errorf("failed to create database: %w", err)
-						}
-					}
-
-					fmt.Println("  ✅ Database user and database created successfully")
-					
-					// Retry connection
-					if err := db.TestConnection(); err != nil {
-						return fmt.Errorf("still unable to connect after setup: %w", err)
-					}
-				} else {
-					// User declined auto-fix, show manual instructions
-					if !strings.Contains(err.Error(), "does not exist") {
-						return fmt.Errorf("PostgreSQL connection failed: %v - please ensure PostgreSQL is installed and running, then run 'pkt start' again", err)
-					}
-				}
-			} else if !strings.Contains(err.Error(), "does not exist") {
-				return fmt.Errorf("PostgreSQL connection failed: %v - please ensure PostgreSQL is installed and running, then run 'pkt start' again", err)
-			}
-			fmt.Println("  ⚠️  Database will be created")
-		}
-		fmt.Println("  ✅ PostgreSQL available")
-
-		// Step 4: Get configuration from user
+		// Step 3: Get configuration from user
 		fmt.Println("\n⚙️  Configuration setup...")
 
 		// Projects root
@@ -228,27 +149,19 @@ This must be run before using any other pkt commands.`,
 		// Verify editor command exists
 		editorAvailable := checkTool(editorCmd)
 		if !editorAvailable {
-			fmt.Printf("  ⚠️  Warning: '%s' command not found. You can update this later in ~/.pkt/config.json\n", editorCmd)
+			fmt.Printf("  ⚠️  Warning: '%s' command not found. You can update this later with 'pkt config editor <cmd>'\n", editorCmd)
 		} else {
 			fmt.Printf("  ✅ Editor command: %s\n", editorCmd)
 		}
 
-		// Step 5: Save configuration
+		// Step 4: Save configuration
 		fmt.Println("\n💾 Saving configuration...")
-		
-		// Update config with user inputs and DB settings
-		cfg.ProjectsRoot = projectsRoot
-		cfg.DefaultPM = defaultPM
-		cfg.EditorCommand = editorCmd
-		cfg.Initialized = true
-		
-		// Ensure DB settings are set (if they weren't already by auto-fix)
-		if cfg.DBUser == "" {
-			cfg.DBUser = "pkt_user"
-			cfg.DBPassword = "yourpassword"
-			cfg.DBName = "pkt_db"
-			cfg.DBHost = "127.0.0.1"
-			cfg.DBPort = "5432"
+
+		cfg := &config.Config{
+			ProjectsRoot:  projectsRoot,
+			DefaultPM:     defaultPM,
+			EditorCommand: editorCmd,
+			Initialized:   true,
 		}
 
 		if err := config.Save(cfg); err != nil {
@@ -256,12 +169,12 @@ This must be run before using any other pkt commands.`,
 		}
 		fmt.Println("  ✅ Configuration saved to ~/.pkt/config.json")
 
-		// Step 6: Initialize database
+		// Step 5: Initialize database
 		fmt.Println("\n🗄️  Initializing database...")
 		if err := db.InitDB(); err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}
-		fmt.Println("  ✅ Database initialized")
+		fmt.Println("  ✅ Database initialized at ~/.pkt/pkt.db")
 
 		// Final summary
 		fmt.Println("\n" + strings.Repeat("=", 60))
@@ -272,15 +185,15 @@ This must be run before using any other pkt commands.`,
 		if pnpmAvailable {
 			fmt.Println("  ✅ pnpm detected")
 		}
-		fmt.Println("  ✅ PostgreSQL available")
+		fmt.Println("  ✅ SQLite database initialized")
 		fmt.Printf("  ✅ Projects folder: %s\n", projectsRoot)
 		fmt.Printf("  ✅ Default package manager: %s\n", defaultPM)
 		fmt.Printf("  ✅ Editor command: %s\n", editorCmd)
-		
+
 		fmt.Println("\n📚 Next steps:")
 		fmt.Println("  • Create a project: pkt create <project-name>")
+		fmt.Println("  • Initialize existing: pkt init <path>")
 		fmt.Println("  • List projects: pkt list")
-		fmt.Println("  • Open a project: pkt open <project-name>")
 
 		return nil
 	},
@@ -290,13 +203,4 @@ This must be run before using any other pkt commands.`,
 func checkTool(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
-}
-
-// getEnv gets an environment variable or returns a default value
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
 }

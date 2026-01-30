@@ -29,7 +29,7 @@ func SyncDependencies(projectID string, deps map[string]*Dependency) error {
 	defer func() { _ = tx.Rollback() }()
 
 	// Delete existing dependencies
-	_, err = tx.Exec("DELETE FROM dependencies WHERE project_id = $1", projectID)
+	_, err = tx.Exec("DELETE FROM dependencies WHERE project_id = ?", projectID)
 	if err != nil {
 		return fmt.Errorf("failed to delete existing dependencies: %w", err)
 	}
@@ -37,7 +37,7 @@ func SyncDependencies(projectID string, deps map[string]*Dependency) error {
 	// Insert new dependencies
 	query := `
 		INSERT INTO dependencies (project_id, name, version, dep_type, created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES (?, ?, ?, ?, ?)
 	`
 
 	for _, dep := range deps {
@@ -64,7 +64,7 @@ func GetDependencies(projectID string) ([]*Dependency, error) {
 	query := `
 		SELECT id, project_id, name, version, dep_type, created_at
 		FROM dependencies
-		WHERE project_id = $1
+		WHERE project_id = ?
 		ORDER BY dep_type, name
 	`
 

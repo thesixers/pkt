@@ -6,7 +6,6 @@ import (
 
 func TestSyncDependencies(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create a project first
 	_, err := CreateProject("DEPS001", "deps-test", "/tmp/deps-test", "pnpm")
@@ -78,7 +77,6 @@ func TestSyncDependencies(t *testing.T) {
 
 func TestSyncDependenciesReplaces(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create a project
 	_, err := CreateProject("DEPS002", "deps-replace-test", "/tmp/deps-replace", "npm")
@@ -137,7 +135,6 @@ func TestSyncDependenciesReplaces(t *testing.T) {
 
 func TestGetDependenciesEmpty(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create a project with no dependencies
 	_, err := CreateProject("DEPS003", "no-deps", "/tmp/no-deps", "pnpm")
@@ -158,7 +155,6 @@ func TestGetDependenciesEmpty(t *testing.T) {
 
 func TestDependenciesCascadeDelete(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create a project with dependencies
 	_, err := CreateProject("DEPS004", "cascade-test", "/tmp/cascade", "npm")

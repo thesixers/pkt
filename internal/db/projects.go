@@ -31,7 +31,7 @@ func CreateProject(id, name, path, pm string) (*Project, error) {
 
 	query := `
 		INSERT INTO projects (id, name, path, package_manager, created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES (?, ?, ?, ?, ?)
 	`
 
 	_, err := DB.Exec(query, project.ID, project.Name, project.Path, project.PackageManager, project.CreatedAt)
@@ -49,7 +49,7 @@ func GetProjectByID(id string) (*Project, error) {
 	}
 
 	project := &Project{}
-	query := `SELECT id, name, path, package_manager, created_at FROM projects WHERE id = $1`
+	query := `SELECT id, name, path, package_manager, created_at FROM projects WHERE id = ?`
 
 	err := DB.QueryRow(query, id).Scan(
 		&project.ID,
@@ -76,7 +76,7 @@ func GetProjectByPath(path string) (*Project, error) {
 	}
 
 	project := &Project{}
-	query := `SELECT id, name, path, package_manager, created_at FROM projects WHERE path = $1`
+	query := `SELECT id, name, path, package_manager, created_at FROM projects WHERE path = ?`
 
 	err := DB.QueryRow(query, path).Scan(
 		&project.ID,
@@ -102,7 +102,7 @@ func GetProjectsByName(name string) ([]*Project, error) {
 		return nil, fmt.Errorf("database not connected")
 	}
 
-	query := `SELECT id, name, path, package_manager, created_at FROM projects WHERE name = $1 ORDER BY created_at DESC`
+	query := `SELECT id, name, path, package_manager, created_at FROM projects WHERE name = ? ORDER BY created_at DESC`
 
 	rows, err := DB.Query(query, name)
 	if err != nil {
@@ -168,7 +168,7 @@ func DeleteProject(id string) error {
 		return fmt.Errorf("database not connected")
 	}
 
-	query := `DELETE FROM projects WHERE id = $1`
+	query := `DELETE FROM projects WHERE id = ?`
 	result, err := DB.Exec(query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete project: %w", err)
@@ -192,7 +192,7 @@ func UpdateProjectPM(id, pm string) error {
 		return fmt.Errorf("database not connected")
 	}
 
-	query := `UPDATE projects SET package_manager = $1 WHERE id = $2`
+	query := `UPDATE projects SET package_manager = ? WHERE id = ?`
 	result, err := DB.Exec(query, pm, id)
 	if err != nil {
 		return fmt.Errorf("failed to update project: %w", err)
@@ -216,7 +216,7 @@ func RenameProject(id, newName string) error {
 		return fmt.Errorf("database not connected")
 	}
 
-	query := `UPDATE projects SET name = $1 WHERE id = $2`
+	query := `UPDATE projects SET name = ? WHERE id = ?`
 	result, err := DB.Exec(query, newName, id)
 	if err != nil {
 		return fmt.Errorf("failed to rename project: %w", err)
@@ -240,7 +240,7 @@ func RenameProjectWithPath(id, newName, newPath string) error {
 		return fmt.Errorf("database not connected")
 	}
 
-	query := `UPDATE projects SET name = $1, path = $2 WHERE id = $3`
+	query := `UPDATE projects SET name = ?, path = ? WHERE id = ?`
 	result, err := DB.Exec(query, newName, newPath, id)
 	if err != nil {
 		return fmt.Errorf("failed to rename project: %w", err)

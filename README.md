@@ -11,11 +11,12 @@ A cross-platform project manager and dependency tracker for JavaScript/Node.js p
 - 📦 **Dependency tracking** — Database-backed tracking of all project dependencies
 - 🆔 **Unique project IDs** — No more name conflicts, reference projects by ID
 - 🚀 **Batch operations** — Add multiple packages in a single command
+- ⚡ **Zero setup** — Embedded SQLite database, no external dependencies
 
 ## Quick Start
 
 ```bash
-# First-time setup (required)
+# First-time setup
 pkt start
 
 # Create a new project
@@ -35,19 +36,37 @@ pkt install
 
 ## Installation
 
-```bash
-# Build from source
-go build -o pkt .
+### Download Binary
 
-# Move to PATH
+Download the latest binary for your platform from the [Releases](https://github.com/thesixers/pkt/releases) page.
+
+### Build from Source
+
+```bash
+git clone https://github.com/thesixers/pkt.git
+cd pkt
+go build -o pkt .
 sudo mv pkt /usr/local/bin/
 ```
 
-**Requirements:**
+### Requirements
 
-- Go 1.24+
-- PostgreSQL
-- One of: pnpm, npm, or bun
+| Requirement         | Details                            |
+| ------------------- | ---------------------------------- |
+| **Node.js**         | Required for npm/pnpm/bun          |
+| **Package Manager** | At least one of: pnpm, npm, or bun |
+
+> **That's it!** No database server, no external dependencies. pkt uses an embedded SQLite database that's created automatically.
+
+### Cross-Platform Support
+
+pkt compiles to a single binary with no external dependencies:
+
+| Platform | Binary                  |
+| -------- | ----------------------- |
+| Linux    | `pkt-linux-amd64`       |
+| macOS    | `pkt-darwin-amd64`      |
+| Windows  | `pkt-windows-amd64.exe` |
 
 ## Commands
 
@@ -66,6 +85,8 @@ sudo mv pkt /usr/local/bin/
 | `pkt list`             | List all tracked projects                       |
 | `pkt open <project>`   | Open project in configured editor               |
 | `pkt delete <project>` | Delete project from filesystem and database     |
+| `pkt rename <project>` | Rename a tracked project                        |
+| `pkt search <query>`   | Search through tracked projects                 |
 
 ### Dependency Management
 
@@ -100,10 +121,10 @@ sudo mv pkt /usr/local/bin/
 First-time setup wizard. Configures:
 
 - Projects root folder (default: `~/Documents/workspace`)
-- Default package manager (pnpm)
+- Default package manager (pnpm recommended)
 - Code editor command (e.g., `code`, `cursor`)
 
-Creates `~/.pkt/config.json` and initializes the database.
+Creates `~/.pkt/config.json` and initializes the SQLite database at `~/.pkt/pkt.db`.
 
 ### `pkt init [path]`
 
@@ -116,7 +137,7 @@ pkt init /path/to/my-project      # Specific project
 
 **Behavior:**
 
-- Reads `package.json` for project name
+- Uses directory name as project name
 - Auto-detects package manager from lockfiles
 - Moves project to workspace if outside it
 - Syncs all dependencies to database
@@ -175,38 +196,48 @@ Configuration is stored in `~/.pkt/config.json`:
   "projects_root": "~/Documents/workspace",
   "default_pm": "pnpm",
   "editor": "code",
-  "initialized": true,
-  "db_user": "pkt",
-  "db_name": "pkt_db"
+  "initialized": true
 }
 ```
 
 ## Database
 
-pkt uses PostgreSQL to track:
+pkt uses an embedded SQLite database at `~/.pkt/pkt.db` to track:
 
-- Projects (ID, name, path, package manager)
-- Dependencies (name, version, type per project)
+- **Projects** — ID, name, path, package manager
+- **Dependencies** — name, version, type (prod/dev) per project
 
 The database is always synced from `package.json` — the source of truth.
 
+> **Zero setup** — The database is created automatically on first run. No PostgreSQL, MySQL, or any external database required!
+
 ## Architecture
 
-- **Language:** Go
-- **CLI Framework:** Cobra
-- **Database:** PostgreSQL
-- **ID Generation:** ULID
+| Component     | Technology                                        |
+| ------------- | ------------------------------------------------- |
+| Language      | Go 1.24+                                          |
+| CLI Framework | Cobra                                             |
+| Database      | SQLite (embedded, pure Go via modernc.org/sqlite) |
+| ID Generation | ULID                                              |
 
 ```
 pkt/
 ├── cmd/          # CLI commands
 ├── internal/
 │   ├── config/   # Configuration management
-│   ├── db/       # Database operations
+│   ├── db/       # SQLite database operations
 │   ├── pm/       # Package manager abstraction
 │   └── utils/    # Utilities (fs, package.json, etc.)
 └── main.go
 ```
+
+### Why SQLite?
+
+- **Zero configuration** — No server to install or configure
+- **Single file** — Entire database in `~/.pkt/pkt.db`
+- **Cross-platform** — Pure Go driver, no CGO required
+- **Fast** — Optimized for local CLI usage
+- **Reliable** — ACID-compliant transactions
 
 ## Safety
 

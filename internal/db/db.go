@@ -5,119 +5,65 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
-	"strings"
+	"path/filepath"
 
-	"github.com/genesix/pkt/internal/config"
-	_ "github.com/lib/pq"
+	_ "modernc.org/sqlite"
 )
 
 //go:embed schema.sql
 var schemaSQL string
 
 var DB *sql.DB
-var dbConfig *config.Config
 
-// SetConfig sets the database configuration
-func SetConfig(cfg *config.Config) {
-	dbConfig = cfg
+// dbPath returns the path to the SQLite database file
+func dbPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	return filepath.Join(home, ".pkt", "pkt.db"), nil
 }
 
-// Connect establishes a connection to the PostgreSQL database
+// Connect establishes a connection to the SQLite database
 func Connect() error {
-	// Get connection parameters from config or environment
-	host := getEnv("PKT_DB_HOST", "127.0.0.1")
-	port := getEnv("PKT_DB_PORT", "5432")
-	user := getEnv("PKT_DB_USER", "postgres")
-	password := getEnv("PKT_DB_PASSWORD", "")
-	dbname := getEnv("PKT_DB_NAME", "pkt_db")
-
-	if dbConfig != nil {
-		if dbConfig.DBHost != "" {
-			host = dbConfig.DBHost
-		}
-		if dbConfig.DBPort != "" {
-			port = dbConfig.DBPort
-		}
-		if dbConfig.DBUser != "" {
-			user = dbConfig.DBUser
-		}
-		if dbConfig.DBPassword != "" {
-			password = dbConfig.DBPassword
-		}
-		if dbConfig.DBName != "" {
-			dbname = dbConfig.DBName
-		}
+	path, err := dbPath()
+	if err != nil {
+		return err
 	}
 
-	// Build connection string
-	connStr := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable",
-		host, port, user, dbname)
-	
-	if password != "" {
-		connStr += fmt.Sprintf(" password=%s", password)
+	// Ensure the directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create database directory: %w", err)
 	}
 
 	// Open database connection
-	var err error
-	DB, err = sql.Open("postgres", connStr)
+	DB, err = sql.Open("sqlite", path)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// Enable foreign key support
+	if _, err := DB.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("failed to enable foreign keys: %w", err)
+	}
+
 	// Test connection
 	if err := DB.Ping(); err != nil {
-		return FormatDBError(err)
+		return fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	// Run migrations to ensure tables exist
+	if err := RunMigrations(); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
 	return nil
 }
 
-// InitDB creates the database if it doesn't exist and runs migrations
+// InitDB creates the database file and runs migrations
 func InitDB() error {
-	// First, connect to postgres database to create pkt_db if needed
-	host := getEnv("PKT_DB_HOST", "127.0.0.1")
-	port := getEnv("PKT_DB_PORT", "5432")
-	user := getEnv("PKT_DB_USER", "postgres")
-	password := getEnv("PKT_DB_PASSWORD", "")
-	dbname := getEnv("PKT_DB_NAME", "pkt_db")
-
-	if dbConfig != nil {
-		if dbConfig.DBHost != "" {
-			host = dbConfig.DBHost
-		}
-		if dbConfig.DBPort != "" {
-			port = dbConfig.DBPort
-		}
-		if dbConfig.DBUser != "" {
-			user = dbConfig.DBUser
-		}
-		if dbConfig.DBPassword != "" {
-			password = dbConfig.DBPassword
-		}
-		if dbConfig.DBName != "" {
-			dbname = dbConfig.DBName
-		}
-	}
-
-	// Connect to default postgres database
-	connStr := fmt.Sprintf("host=%s port=%s user=%s dbname=postgres sslmode=disable",
-		host, port, user)
-	
-	if password != "" {
-		connStr += fmt.Sprintf(" password=%s", password)
-	}
-
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		return fmt.Errorf("failed to connect to postgres: %w", err)
-	}
-	defer func() { _ = db.Close() }()
-
-	// Create database if it doesn't exist
-	// Ignore error if database already exists - we'll check this by trying to connect to it
-	_, _ = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
-
-	// Now connect to the pkt_db database
+	// Connect first (this will create the file if it doesn't exist)
 	if err := Connect(); err != nil {
 		return err
 	}
@@ -148,122 +94,34 @@ func Close() error {
 	return nil
 }
 
-// getEnv gets an environment variable or returns a default value
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
-}
-
-// FormatDBError provides user-friendly error messages for common PostgreSQL errors
-func FormatDBError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	errMsg := err.Error()
-
-	// Check for Ident authentication failure
-	if strings.Contains(errMsg, "Ident authentication failed") || strings.Contains(errMsg, "no pg_hba.conf entry") {
-		return fmt.Errorf(`PostgreSQL authentication failed.
-
-⚠️  Please configure PostgreSQL authentication:
-
-Option 1: Create a dedicated user and database:
-  $ sudo -u postgres psql
-  postgres=# CREATE USER pkt_user WITH PASSWORD 'yourpassword';
-  postgres=# CREATE DATABASE pkt_db OWNER pkt_user;
-  postgres=# \q
-
-  Then set environment variables:
-  export PKT_DB_USER=pkt_user
-  export PKT_DB_PASSWORD=yourpassword
-  export PKT_DB_NAME=pkt_db
-
-Option 2: Configure pg_hba.conf to allow password authentication:
-  Edit /etc/postgresql/*/main/pg_hba.conf and change:
-    local   all   all   peer
-  to:
-    local   all   all   md5
-  Then restart PostgreSQL: sudo systemctl restart postgresql`)
-	}
-
-	// Check for connection refused
-	if strings.Contains(errMsg, "connection refused") {
-		return fmt.Errorf(`PostgreSQL connection refused.
-
-⚠️  PostgreSQL may not be running. Try:
-  $ sudo systemctl start postgresql
-  $ sudo systemctl enable postgresql
-
-Or check if PostgreSQL is installed:
-  $ psql --version`)
-	}
-
-	// Check for password authentication failed
-	if strings.Contains(errMsg, "password authentication failed") {
-		return fmt.Errorf(`PostgreSQL password authentication failed.
-
-⚠️  Please check your credentials and set environment variables:
-  export PKT_DB_USER=your_username
-  export PKT_DB_PASSWORD=your_password
-  export PKT_DB_NAME=pkt_db`)
-	}
-
-	// Check for database does not exist
-	if strings.Contains(errMsg, "database") && strings.Contains(errMsg, "does not exist") {
-		return fmt.Errorf("database does not exist - this is normal on first run, the database will be created automatically")
-	}
-
-	return fmt.Errorf("database error: %w", err)
+// SetConfig is kept for API compatibility but is no longer needed for SQLite
+func SetConfig(cfg interface{}) {
+	// No-op for SQLite - database path is fixed at ~/.pkt/pkt.db
 }
 
 // TestConnection tests the database connection without storing it
 func TestConnection() error {
-	host := getEnv("PKT_DB_HOST", "127.0.0.1")
-	port := getEnv("PKT_DB_PORT", "5432")
-	user := getEnv("PKT_DB_USER", "postgres")
-	password := getEnv("PKT_DB_PASSWORD", "")
-	dbname := getEnv("PKT_DB_NAME", "pkt_db")
-
-	if dbConfig != nil {
-		if dbConfig.DBHost != "" {
-			host = dbConfig.DBHost
-		}
-		if dbConfig.DBPort != "" {
-			port = dbConfig.DBPort
-		}
-		if dbConfig.DBUser != "" {
-			user = dbConfig.DBUser
-		}
-		if dbConfig.DBPassword != "" {
-			password = dbConfig.DBPassword
-		}
-		if dbConfig.DBName != "" {
-			dbname = dbConfig.DBName
-		}
+	path, err := dbPath()
+	if err != nil {
+		return err
 	}
 
-	// Build connection string
-	connStr := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable",
-		host, port, user, dbname)
-	
-	if password != "" {
-		connStr += fmt.Sprintf(" password=%s", password)
+	// Ensure the directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create database directory: %w", err)
 	}
 
 	// Open database connection
-	testDB, err := sql.Open("postgres", connStr)
+	testDB, err := sql.Open("sqlite", path)
 	if err != nil {
-		return FormatDBError(err)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer func() { _ = testDB.Close() }()
 
 	// Test connection
 	if err := testDB.Ping(); err != nil {
-		return FormatDBError(err)
+		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	return nil

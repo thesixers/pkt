@@ -37,11 +37,6 @@ func TestConfigJSONSerialization(t *testing.T) {
 		DefaultPM:     "npm",
 		EditorCommand: "code",
 		Initialized:   true,
-		DBUser:        "pkt_user",
-		DBPassword:    "secret",
-		DBName:        "pkt_db",
-		DBHost:        "localhost",
-		DBPort:        "5432",
 	}
 
 	// Marshal to JSON
@@ -69,47 +64,6 @@ func TestConfigJSONSerialization(t *testing.T) {
 	}
 	if loaded.Initialized != cfg.Initialized {
 		t.Errorf("Initialized mismatch: got %v, want %v", loaded.Initialized, cfg.Initialized)
-	}
-	if loaded.DBUser != cfg.DBUser {
-		t.Errorf("DBUser mismatch: got %s, want %s", loaded.DBUser, cfg.DBUser)
-	}
-	if loaded.DBPassword != cfg.DBPassword {
-		t.Errorf("DBPassword mismatch: got %s, want %s", loaded.DBPassword, cfg.DBPassword)
-	}
-	if loaded.DBName != cfg.DBName {
-		t.Errorf("DBName mismatch: got %s, want %s", loaded.DBName, cfg.DBName)
-	}
-	if loaded.DBHost != cfg.DBHost {
-		t.Errorf("DBHost mismatch: got %s, want %s", loaded.DBHost, cfg.DBHost)
-	}
-	if loaded.DBPort != cfg.DBPort {
-		t.Errorf("DBPort mismatch: got %s, want %s", loaded.DBPort, cfg.DBPort)
-	}
-}
-
-func TestConfigJSONOmitEmpty(t *testing.T) {
-	// Config with empty optional DB fields
-	cfg := &Config{
-		ProjectsRoot:  "/home/user/projects",
-		DefaultPM:     "pnpm",
-		EditorCommand: "vim",
-		Initialized:   true,
-		// DB fields intentionally empty
-	}
-
-	// Marshal to JSON
-	data, err := json.Marshal(cfg)
-	if err != nil {
-		t.Fatalf("Failed to marshal config: %v", err)
-	}
-
-	// The JSON should not contain empty DB fields
-	jsonStr := string(data)
-	if contains(jsonStr, "db_user") {
-		t.Error("Expected empty db_user to be omitted from JSON")
-	}
-	if contains(jsonStr, "db_password") {
-		t.Error("Expected empty db_password to be omitted from JSON")
 	}
 }
 
@@ -175,13 +129,4 @@ func TestConfigFileOperations(t *testing.T) {
 	if loaded.DefaultPM != "bun" {
 		t.Errorf("Expected DefaultPM 'bun', got '%s'", loaded.DefaultPM)
 	}
-}
-
-func contains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

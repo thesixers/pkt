@@ -3,9 +3,10 @@ package db
 import (
 	"database/sql"
 	"os"
+	"path/filepath"
 	"testing"
 
-	_ "github.com/lib/pq"
+	_ "modernc.org/sqlite"
 )
 
 // testDB holds the test database connection
@@ -15,47 +16,32 @@ var testDB *sql.DB
 func setupTestDB(t *testing.T) {
 	t.Helper()
 
-	// Use environment variables for test database, with defaults
-	host := getTestEnv("PKT_TEST_DB_HOST", "127.0.0.1")
-	port := getTestEnv("PKT_TEST_DB_PORT", "5432")
-	user := getTestEnv("PKT_TEST_DB_USER", "pkt_user")
-	password := getTestEnv("PKT_TEST_DB_PASSWORD", "yourpassword")
-	dbname := getTestEnv("PKT_TEST_DB_NAME", "pkt_test_db")
-
-	// Build connection string for postgres database to create test db
-	connStr := "host=" + host + " port=" + port + " user=" + user + " dbname=postgres sslmode=disable"
-	if password != "" {
-		connStr += " password=" + password
-	}
-
-	// Connect to postgres to create test database
-	adminDB, err := sql.Open("postgres", connStr)
+	// Create a temporary directory for test database
+	tmpDir, err := os.MkdirTemp("", "pkt-test-db")
 	if err != nil {
-		t.Skipf("Skipping database tests: cannot connect to postgres: %v", err)
-	}
-	defer func() { _ = adminDB.Close() }()
-
-	// Check if we can actually connect
-	if err := adminDB.Ping(); err != nil {
-		t.Skipf("Skipping database tests: cannot ping postgres: %v", err)
+		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	// Drop and recreate test database for clean state
-	_, _ = adminDB.Exec("DROP DATABASE IF EXISTS " + dbname)
-	_, err = adminDB.Exec("CREATE DATABASE " + dbname)
+	// Store temp dir in test context for cleanup
+	t.Cleanup(func() {
+		if testDB != nil {
+			_ = testDB.Close()
+		}
+		_ = os.RemoveAll(tmpDir)
+		DB = nil
+	})
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	// Open SQLite database
+	testDB, err = sql.Open("sqlite", dbPath)
 	if err != nil {
-		t.Skipf("Skipping database tests: cannot create test database: %v", err)
+		t.Fatalf("Failed to open test database: %v", err)
 	}
 
-	// Connect to test database
-	testConnStr := "host=" + host + " port=" + port + " user=" + user + " dbname=" + dbname + " sslmode=disable"
-	if password != "" {
-		testConnStr += " password=" + password
-	}
-
-	testDB, err = sql.Open("postgres", testConnStr)
-	if err != nil {
-		t.Fatalf("Failed to connect to test database: %v", err)
+	// Enable foreign keys
+	if _, err := testDB.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		t.Fatalf("Failed to enable foreign keys: %v", err)
 	}
 
 	// Set the global DB to our test database
@@ -67,27 +53,8 @@ func setupTestDB(t *testing.T) {
 	}
 }
 
-// teardownTestDB cleans up the test database
-func teardownTestDB(t *testing.T) {
-	t.Helper()
-
-	if testDB != nil {
-		_ = testDB.Close()
-	}
-	DB = nil
-}
-
-func getTestEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
-}
-
 func TestCreateProject(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Test creating a project
 	project, err := CreateProject("TEST001", "test-project", "/tmp/test-project", "pnpm")
@@ -111,7 +78,6 @@ func TestCreateProject(t *testing.T) {
 
 func TestCreateProjectDuplicatePath(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create first project
 	_, err := CreateProject("TEST001", "project1", "/tmp/unique-path", "pnpm")
@@ -128,7 +94,6 @@ func TestCreateProjectDuplicatePath(t *testing.T) {
 
 func TestGetProjectByID(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create a project
 	_, err := CreateProject("GETID001", "get-by-id-test", "/tmp/get-by-id", "npm")
@@ -149,7 +114,6 @@ func TestGetProjectByID(t *testing.T) {
 
 func TestGetProjectByIDNotFound(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Try to get non-existent project
 	_, err := GetProjectByID("NONEXISTENT")
@@ -160,7 +124,6 @@ func TestGetProjectByIDNotFound(t *testing.T) {
 
 func TestGetProjectByPath(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create a project
 	_, err := CreateProject("GETPATH001", "get-by-path-test", "/tmp/get-by-path", "bun")
@@ -181,7 +144,6 @@ func TestGetProjectByPath(t *testing.T) {
 
 func TestGetProjectsByName(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create multiple projects with same name
 	_, err := CreateProject("NAME001", "shared-name", "/tmp/path1", "pnpm")
@@ -206,7 +168,6 @@ func TestGetProjectsByName(t *testing.T) {
 
 func TestListAllProjects(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Initially empty
 	projects, err := ListAllProjects()
@@ -234,7 +195,6 @@ func TestListAllProjects(t *testing.T) {
 
 func TestDeleteProject(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create a project
 	_, err := CreateProject("DEL001", "to-delete", "/tmp/to-delete", "pnpm")
@@ -263,7 +223,6 @@ func TestDeleteProject(t *testing.T) {
 
 func TestDeleteProjectNotFound(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Try to delete non-existent project
 	err := DeleteProject("NONEXISTENT")
@@ -274,7 +233,6 @@ func TestDeleteProjectNotFound(t *testing.T) {
 
 func TestUpdateProjectPM(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create a project
 	_, err := CreateProject("UPDATE001", "update-pm-test", "/tmp/update-pm", "pnpm")
@@ -347,7 +305,6 @@ func TestDatabaseNotConnected(t *testing.T) {
 
 func TestRenameProject(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Create a project
 	_, err := CreateProject("RENAME001", "old-name", "/tmp/rename-test", "pnpm")
@@ -392,7 +349,6 @@ func TestRenameProject(t *testing.T) {
 
 func TestRenameProjectNotFound(t *testing.T) {
 	setupTestDB(t)
-	defer teardownTestDB(t)
 
 	// Try to rename non-existent project
 	err := RenameProject("NONEXISTENT", "new-name")
@@ -400,4 +356,3 @@ func TestRenameProjectNotFound(t *testing.T) {
 		t.Error("Expected error when renaming non-existent project, got nil")
 	}
 }
-
