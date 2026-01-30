@@ -1,76 +1,41 @@
 package pm
 
-import (
-	"fmt"
-	"os/exec"
-)
+import "os/exec"
 
-// Bun implements the PackageManager interface for bun
+// Bun implements PackageManager for bun
 type Bun struct{}
 
 func (b *Bun) Name() string {
 	return "bun"
 }
 
-func (b *Bun) IsAvailable() bool {
-	return CheckAvailability("bun")
+func (b *Bun) Language() string {
+	return "javascript"
 }
 
-func (b *Bun) Add(workDir, pkg string, flags []string) error {
-	args := []string{"add", pkg}
-	args = append(args, flags...)
-
-	cmd := exec.Command("bun", args...)
-	cmd.Dir = workDir
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("bun add failed: %w", err)
-	}
-
-	return nil
-}
-
-func (b *Bun) AddMultiple(workDir string, packages []string, flags []string) error {
+func (b *Bun) Add(workDir string, packages []string, dev bool) error {
 	args := []string{"add"}
-	args = append(args, packages...)
-	args = append(args, flags...)
-
-	cmd := exec.Command("bun", args...)
-	cmd.Dir = workDir
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("bun add failed: %w", err)
+	if dev {
+		args = append(args, "-d")
 	}
-
-	return nil
+	args = append(args, packages...)
+	return runCommand("bun", args, workDir)
 }
 
-func (b *Bun) Remove(workDir, pkg string) error {
-	cmd := exec.Command("bun", "remove", pkg)
-	cmd.Dir = workDir
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+func (b *Bun) Remove(workDir string, packages []string) error {
+	args := append([]string{"remove"}, packages...)
+	return runCommand("bun", args, workDir)
+}
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("bun remove failed: %w", err)
-	}
-
-	return nil
+func (b *Bun) Install(workDir string) error {
+	return runCommand("bun", []string{"install"}, workDir)
 }
 
 func (b *Bun) Init(workDir string) error {
-	cmd := exec.Command("bun", "init")
-	cmd.Dir = workDir
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	return runCommand("bun", []string{"init", "-y"}, workDir)
+}
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("bun init failed: %w", err)
-	}
-
-	return nil
+func (b *Bun) IsAvailable() bool {
+	_, err := exec.LookPath("bun")
+	return err == nil
 }

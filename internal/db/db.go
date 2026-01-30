@@ -21,7 +21,7 @@ func dbPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
-	return filepath.Join(home, ".pkt", "pkt.db"), nil
+	return filepath.Join(home, ".pkt", "pkt2.db"), nil
 }
 
 // Connect establishes a connection to the SQLite database

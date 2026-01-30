@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/genesix/pkt/internal/db"
 	"github.com/genesix/pkt/internal/pm"
@@ -11,13 +12,13 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:   "remove <package>",
-	Short: "Remove a dependency from the current project",
-	Long: `Remove a dependency from the current project using its package manager.
+	Use:   "remove <package> [packages...]",
+	Short: "Remove dependencies from the current project",
+	Long: `Remove one or more dependencies from the current project using its package manager.
 Must be run inside a tracked project folder.`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		packageName := args[0]
+		packages := args
 
 		// Get current directory
 		cwd, err := os.Getwd()
@@ -32,28 +33,34 @@ Must be run inside a tracked project folder.`,
 		}
 
 		// Get package manager
-		packageManager, err := pm.GetPM(project.PackageManager)
+		packageManager, err := pm.Get(project.Language, project.PackageManager)
 		if err != nil {
 			return err
 		}
 
-		// Remove dependency
-		fmt.Printf("Removing %s...\n", packageName)
-		if err := packageManager.Remove(cwd, packageName); err != nil {
-			return fmt.Errorf("failed to remove dependency: %w", err)
+		// Remove dependencies
+		packagesStr := strings.Join(packages, " ")
+		fmt.Printf("Removing %s...\n", packagesStr)
+
+		if err := packageManager.Remove(cwd, packages); err != nil {
+			return fmt.Errorf("failed to remove dependencies: %w", err)
 		}
 
-		// Sync dependencies to database
-		deps, err := utils.ParsePackageJSON(cwd)
-		if err != nil {
-			return fmt.Errorf("failed to parse package.json: %w", err)
+		// Sync dependencies to database (JavaScript only for now)
+		if project.Language == "javascript" {
+			deps, err := utils.ParsePackageJSON(cwd)
+			if err != nil {
+				fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
+			} else if err := db.SyncDependencies(project.ID, deps); err != nil {
+				fmt.Printf("⚠️  Warning: failed to sync dependencies: %v\n", err)
+			}
 		}
 
-		if err := db.SyncDependencies(project.ID, deps); err != nil {
-			return fmt.Errorf("failed to sync dependencies: %w", err)
+		if len(packages) == 1 {
+			fmt.Printf("✓ Removed %s\n", packages[0])
+		} else {
+			fmt.Printf("✓ Removed %d packages: %s\n", len(packages), packagesStr)
 		}
-
-		fmt.Printf("✓ Removed %s\n", packageName)
 
 		return nil
 	},

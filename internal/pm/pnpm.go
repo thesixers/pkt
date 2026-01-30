@@ -1,76 +1,41 @@
 package pm
 
-import (
-	"fmt"
-	"os/exec"
-)
+import "os/exec"
 
-// PNPM implements the PackageManager interface for pnpm
+// PNPM implements PackageManager for pnpm
 type PNPM struct{}
 
 func (p *PNPM) Name() string {
 	return "pnpm"
 }
 
-func (p *PNPM) IsAvailable() bool {
-	return CheckAvailability("pnpm")
+func (p *PNPM) Language() string {
+	return "javascript"
 }
 
-func (p *PNPM) Add(workDir, pkg string, flags []string) error {
-	args := []string{"add", pkg}
-	args = append(args, flags...)
-
-	cmd := exec.Command("pnpm", args...)
-	cmd.Dir = workDir
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("pnpm add failed: %w", err)
-	}
-
-	return nil
-}
-
-func (p *PNPM) AddMultiple(workDir string, packages []string, flags []string) error {
+func (p *PNPM) Add(workDir string, packages []string, dev bool) error {
 	args := []string{"add"}
-	args = append(args, packages...)
-	args = append(args, flags...)
-
-	cmd := exec.Command("pnpm", args...)
-	cmd.Dir = workDir
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("pnpm add failed: %w", err)
+	if dev {
+		args = append(args, "-D")
 	}
-
-	return nil
+	args = append(args, packages...)
+	return runCommand("pnpm", args, workDir)
 }
 
-func (p *PNPM) Remove(workDir, pkg string) error {
-	cmd := exec.Command("pnpm", "remove", pkg)
-	cmd.Dir = workDir
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+func (p *PNPM) Remove(workDir string, packages []string) error {
+	args := append([]string{"remove"}, packages...)
+	return runCommand("pnpm", args, workDir)
+}
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("pnpm remove failed: %w", err)
-	}
-
-	return nil
+func (p *PNPM) Install(workDir string) error {
+	return runCommand("pnpm", []string{"install"}, workDir)
 }
 
 func (p *PNPM) Init(workDir string) error {
-	cmd := exec.Command("pnpm", "init", "-y")
-	cmd.Dir = workDir
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	return runCommand("pnpm", []string{"init"}, workDir)
+}
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("pnpm init failed: %w", err)
-	}
-
-	return nil
+func (p *PNPM) IsAvailable() bool {
+	_, err := exec.LookPath("pnpm")
+	return err == nil
 }

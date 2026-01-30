@@ -10,10 +10,12 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "pkt",
-	Short: "Project Kit - A cross-platform project manager for JavaScript/Node.js",
-	Long: `pkt (Project Kit) is a project manager and dependency tracker that sits on top of
-package managers like pnpm, npm, and bun. It provides a unified interface
-for managing all your JavaScript projects.`,
+	Short: "Project Kit - A universal project manager for JS, Python, Go, and Rust",
+	Long: `pkt (Project Kit) is a universal project manager and dependency tracker.
+
+Supports: JavaScript (npm/pnpm/bun), Python (pip/poetry/uv), Go, and Rust (cargo).
+
+It provides a unified interface for managing all your projects across languages.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip config check for start command
 		if cmd.Name() == "start" {

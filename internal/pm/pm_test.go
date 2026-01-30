@@ -15,6 +15,11 @@ func TestGetPM(t *testing.T) {
 		{"pnpm exists", "pnpm", false},
 		{"npm exists", "npm", false},
 		{"bun exists", "bun", false},
+		{"uv exists", "uv", false},
+		{"pip exists", "pip", false},
+		{"poetry exists", "poetry", false},
+		{"go exists", "go", false},
+		{"cargo exists", "cargo", false},
 		{"unknown pm", "yarn", true},
 		{"empty name", "", true},
 	}
@@ -38,10 +43,51 @@ func TestGetPM(t *testing.T) {
 	}
 }
 
+func TestGet(t *testing.T) {
+	tests := []struct {
+		name        string
+		language    string
+		pmName      string
+		expectError bool
+	}{
+		{"javascript pnpm", "javascript", "pnpm", false},
+		{"javascript npm", "javascript", "npm", false},
+		{"javascript bun", "javascript", "bun", false},
+		{"python uv", "python", "uv", false},
+		{"python pip", "python", "pip", false},
+		{"python poetry", "python", "poetry", false},
+		{"go", "go", "go", false},
+		{"rust cargo", "rust", "cargo", false},
+		{"wrong language", "javascript", "cargo", true},
+		{"unknown language", "unknown", "npm", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pm, err := Get(tt.language, tt.pmName)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error for %s/%s, got nil", tt.language, tt.pmName)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error for %s/%s: %v", tt.language, tt.pmName, err)
+				}
+				if pm == nil {
+					t.Errorf("Expected non-nil PackageManager for %s/%s", tt.language, tt.pmName)
+				}
+			}
+		})
+	}
+}
+
 func TestPNPMName(t *testing.T) {
 	pm := &PNPM{}
 	if pm.Name() != "pnpm" {
 		t.Errorf("Expected name 'pnpm', got '%s'", pm.Name())
+	}
+	if pm.Language() != "javascript" {
+		t.Errorf("Expected language 'javascript', got '%s'", pm.Language())
 	}
 }
 
@@ -50,12 +96,68 @@ func TestNPMName(t *testing.T) {
 	if pm.Name() != "npm" {
 		t.Errorf("Expected name 'npm', got '%s'", pm.Name())
 	}
+	if pm.Language() != "javascript" {
+		t.Errorf("Expected language 'javascript', got '%s'", pm.Language())
+	}
 }
 
 func TestBunName(t *testing.T) {
 	pm := &Bun{}
 	if pm.Name() != "bun" {
 		t.Errorf("Expected name 'bun', got '%s'", pm.Name())
+	}
+	if pm.Language() != "javascript" {
+		t.Errorf("Expected language 'javascript', got '%s'", pm.Language())
+	}
+}
+
+func TestUVName(t *testing.T) {
+	pm := &UV{}
+	if pm.Name() != "uv" {
+		t.Errorf("Expected name 'uv', got '%s'", pm.Name())
+	}
+	if pm.Language() != "python" {
+		t.Errorf("Expected language 'python', got '%s'", pm.Language())
+	}
+}
+
+func TestPipName(t *testing.T) {
+	pm := &Pip{}
+	if pm.Name() != "pip" {
+		t.Errorf("Expected name 'pip', got '%s'", pm.Name())
+	}
+	if pm.Language() != "python" {
+		t.Errorf("Expected language 'python', got '%s'", pm.Language())
+	}
+}
+
+func TestPoetryName(t *testing.T) {
+	pm := &Poetry{}
+	if pm.Name() != "poetry" {
+		t.Errorf("Expected name 'poetry', got '%s'", pm.Name())
+	}
+	if pm.Language() != "python" {
+		t.Errorf("Expected language 'python', got '%s'", pm.Language())
+	}
+}
+
+func TestGoModName(t *testing.T) {
+	pm := &GoMod{}
+	if pm.Name() != "go" {
+		t.Errorf("Expected name 'go', got '%s'", pm.Name())
+	}
+	if pm.Language() != "go" {
+		t.Errorf("Expected language 'go', got '%s'", pm.Language())
+	}
+}
+
+func TestCargoName(t *testing.T) {
+	pm := &Cargo{}
+	if pm.Name() != "cargo" {
+		t.Errorf("Expected name 'cargo', got '%s'", pm.Name())
+	}
+	if pm.Language() != "rust" {
+		t.Errorf("Expected language 'rust', got '%s'", pm.Language())
 	}
 }
 
@@ -102,6 +204,21 @@ func TestListAvailable(t *testing.T) {
 		if err != nil {
 			t.Errorf("ListAvailable returned unknown PM: %s", name)
 		}
+	}
+}
+
+func TestListForLanguage(t *testing.T) {
+	// Test JavaScript package managers
+	jsPMs := ListForLanguage("javascript")
+	// At least npm should be available on most systems
+	if len(jsPMs) == 0 {
+		t.Log("Warning: no JavaScript package managers available")
+	}
+
+	// Test unknown language
+	unknownPMs := ListForLanguage("unknown")
+	if len(unknownPMs) > 0 {
+		t.Error("Expected empty slice for unknown language")
 	}
 }
 
@@ -182,7 +299,7 @@ func TestNPMAddAndRemove(t *testing.T) {
 	}
 
 	// Add a small package
-	err = pm.Add(tmpDir, "is-odd", nil)
+	err = pm.Add(tmpDir, []string{"is-odd"}, false)
 	if err != nil {
 		t.Fatalf("npm add failed: %v", err)
 	}
@@ -194,7 +311,7 @@ func TestNPMAddAndRemove(t *testing.T) {
 	}
 
 	// Remove the package
-	err = pm.Remove(tmpDir, "is-odd")
+	err = pm.Remove(tmpDir, []string{"is-odd"})
 	if err != nil {
 		t.Fatalf("npm remove failed: %v", err)
 	}
@@ -221,7 +338,7 @@ func TestPNPMAddAndRemove(t *testing.T) {
 	}
 
 	// Add a small package
-	err = pm.Add(tmpDir, "is-odd", nil)
+	err = pm.Add(tmpDir, []string{"is-odd"}, false)
 	if err != nil {
 		t.Fatalf("pnpm add failed: %v", err)
 	}
@@ -233,7 +350,7 @@ func TestPNPMAddAndRemove(t *testing.T) {
 	}
 
 	// Remove the package
-	err = pm.Remove(tmpDir, "is-odd")
+	err = pm.Remove(tmpDir, []string{"is-odd"})
 	if err != nil {
 		t.Fatalf("pnpm remove failed: %v", err)
 	}
@@ -259,8 +376,8 @@ func TestAddWithFlags(t *testing.T) {
 	}
 
 	// Add as dev dependency
-	err = pm.Add(tmpDir, "is-odd", []string{"--save-dev"})
+	err = pm.Add(tmpDir, []string{"is-odd"}, true)
 	if err != nil {
-		t.Fatalf("npm add with flags failed: %v", err)
+		t.Fatalf("npm add with dev flag failed: %v", err)
 	}
 }

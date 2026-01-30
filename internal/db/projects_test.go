@@ -57,7 +57,7 @@ func TestCreateProject(t *testing.T) {
 	setupTestDB(t)
 
 	// Test creating a project
-	project, err := CreateProject("TEST001", "test-project", "/tmp/test-project", "pnpm")
+	project, err := CreateProject("TEST001", "test-project", "/tmp/test-project", "javascript", "pnpm")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -71,6 +71,9 @@ func TestCreateProject(t *testing.T) {
 	if project.Path != "/tmp/test-project" {
 		t.Errorf("Expected Path '/tmp/test-project', got '%s'", project.Path)
 	}
+	if project.Language != "javascript" {
+		t.Errorf("Expected Language 'javascript', got '%s'", project.Language)
+	}
 	if project.PackageManager != "pnpm" {
 		t.Errorf("Expected PackageManager 'pnpm', got '%s'", project.PackageManager)
 	}
@@ -80,13 +83,13 @@ func TestCreateProjectDuplicatePath(t *testing.T) {
 	setupTestDB(t)
 
 	// Create first project
-	_, err := CreateProject("TEST001", "project1", "/tmp/unique-path", "pnpm")
+	_, err := CreateProject("TEST001", "project1", "/tmp/unique-path", "javascript", "pnpm")
 	if err != nil {
 		t.Fatalf("Failed to create first project: %v", err)
 	}
 
 	// Try to create second project with same path (should fail due to unique constraint)
-	_, err = CreateProject("TEST002", "project2", "/tmp/unique-path", "npm")
+	_, err = CreateProject("TEST002", "project2", "/tmp/unique-path", "python", "uv")
 	if err == nil {
 		t.Error("Expected error when creating project with duplicate path, got nil")
 	}
@@ -96,7 +99,7 @@ func TestGetProjectByID(t *testing.T) {
 	setupTestDB(t)
 
 	// Create a project
-	_, err := CreateProject("GETID001", "get-by-id-test", "/tmp/get-by-id", "npm")
+	_, err := CreateProject("GETID001", "get-by-id-test", "/tmp/get-by-id", "go", "go")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -109,6 +112,9 @@ func TestGetProjectByID(t *testing.T) {
 
 	if project.Name != "get-by-id-test" {
 		t.Errorf("Expected Name 'get-by-id-test', got '%s'", project.Name)
+	}
+	if project.Language != "go" {
+		t.Errorf("Expected Language 'go', got '%s'", project.Language)
 	}
 }
 
@@ -126,7 +132,7 @@ func TestGetProjectByPath(t *testing.T) {
 	setupTestDB(t)
 
 	// Create a project
-	_, err := CreateProject("GETPATH001", "get-by-path-test", "/tmp/get-by-path", "bun")
+	_, err := CreateProject("GETPATH001", "get-by-path-test", "/tmp/get-by-path", "rust", "cargo")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -140,17 +146,20 @@ func TestGetProjectByPath(t *testing.T) {
 	if project.ID != "GETPATH001" {
 		t.Errorf("Expected ID 'GETPATH001', got '%s'", project.ID)
 	}
+	if project.Language != "rust" {
+		t.Errorf("Expected Language 'rust', got '%s'", project.Language)
+	}
 }
 
 func TestGetProjectsByName(t *testing.T) {
 	setupTestDB(t)
 
 	// Create multiple projects with same name
-	_, err := CreateProject("NAME001", "shared-name", "/tmp/path1", "pnpm")
+	_, err := CreateProject("NAME001", "shared-name", "/tmp/path1", "javascript", "pnpm")
 	if err != nil {
 		t.Fatalf("Failed to create first project: %v", err)
 	}
-	_, err = CreateProject("NAME002", "shared-name", "/tmp/path2", "npm")
+	_, err = CreateProject("NAME002", "shared-name", "/tmp/path2", "python", "uv")
 	if err != nil {
 		t.Fatalf("Failed to create second project: %v", err)
 	}
@@ -166,6 +175,34 @@ func TestGetProjectsByName(t *testing.T) {
 	}
 }
 
+func TestGetProjectsByLanguage(t *testing.T) {
+	setupTestDB(t)
+
+	// Create projects with different languages
+	_, _ = CreateProject("LANG001", "js-project1", "/tmp/js1", "javascript", "pnpm")
+	_, _ = CreateProject("LANG002", "js-project2", "/tmp/js2", "javascript", "npm")
+	_, _ = CreateProject("LANG003", "py-project", "/tmp/py1", "python", "uv")
+	_, _ = CreateProject("LANG004", "go-project", "/tmp/go1", "go", "go")
+
+	// Get JavaScript projects
+	jsProjects, err := GetProjectsByLanguage("javascript")
+	if err != nil {
+		t.Fatalf("Failed to get projects by language: %v", err)
+	}
+	if len(jsProjects) != 2 {
+		t.Errorf("Expected 2 JavaScript projects, got %d", len(jsProjects))
+	}
+
+	// Get Python projects
+	pyProjects, err := GetProjectsByLanguage("python")
+	if err != nil {
+		t.Fatalf("Failed to get projects by language: %v", err)
+	}
+	if len(pyProjects) != 1 {
+		t.Errorf("Expected 1 Python project, got %d", len(pyProjects))
+	}
+}
+
 func TestListAllProjects(t *testing.T) {
 	setupTestDB(t)
 
@@ -178,10 +215,10 @@ func TestListAllProjects(t *testing.T) {
 		t.Errorf("Expected 0 projects initially, got %d", len(projects))
 	}
 
-	// Create some projects
-	_, _ = CreateProject("LIST001", "project1", "/tmp/list1", "pnpm")
-	_, _ = CreateProject("LIST002", "project2", "/tmp/list2", "npm")
-	_, _ = CreateProject("LIST003", "project3", "/tmp/list3", "bun")
+	// Create projects with different languages
+	_, _ = CreateProject("LIST001", "project1", "/tmp/list1", "javascript", "pnpm")
+	_, _ = CreateProject("LIST002", "project2", "/tmp/list2", "python", "uv")
+	_, _ = CreateProject("LIST003", "project3", "/tmp/list3", "go", "go")
 
 	// List all
 	projects, err = ListAllProjects()
@@ -197,7 +234,7 @@ func TestDeleteProject(t *testing.T) {
 	setupTestDB(t)
 
 	// Create a project
-	_, err := CreateProject("DEL001", "to-delete", "/tmp/to-delete", "pnpm")
+	_, err := CreateProject("DEL001", "to-delete", "/tmp/to-delete", "javascript", "pnpm")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -235,7 +272,7 @@ func TestUpdateProjectPM(t *testing.T) {
 	setupTestDB(t)
 
 	// Create a project
-	_, err := CreateProject("UPDATE001", "update-pm-test", "/tmp/update-pm", "pnpm")
+	_, err := CreateProject("UPDATE001", "update-pm-test", "/tmp/update-pm", "javascript", "pnpm")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -262,7 +299,7 @@ func TestDatabaseNotConnected(t *testing.T) {
 	DB = nil
 
 	// All operations should return "database not connected" error
-	_, err := CreateProject("X", "x", "/x", "npm")
+	_, err := CreateProject("X", "x", "/x", "javascript", "npm")
 	if err == nil || err.Error() != "database not connected" {
 		t.Errorf("Expected 'database not connected' error, got: %v", err)
 	}
@@ -278,6 +315,11 @@ func TestDatabaseNotConnected(t *testing.T) {
 	}
 
 	_, err = GetProjectsByName("x")
+	if err == nil || err.Error() != "database not connected" {
+		t.Errorf("Expected 'database not connected' error, got: %v", err)
+	}
+
+	_, err = GetProjectsByLanguage("javascript")
 	if err == nil || err.Error() != "database not connected" {
 		t.Errorf("Expected 'database not connected' error, got: %v", err)
 	}
@@ -307,7 +349,7 @@ func TestRenameProject(t *testing.T) {
 	setupTestDB(t)
 
 	// Create a project
-	_, err := CreateProject("RENAME001", "old-name", "/tmp/rename-test", "pnpm")
+	_, err := CreateProject("RENAME001", "old-name", "/tmp/rename-test", "javascript", "pnpm")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}

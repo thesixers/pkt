@@ -9,6 +9,7 @@ import (
 
 	"github.com/genesix/pkt/internal/config"
 	"github.com/genesix/pkt/internal/db"
+	"github.com/genesix/pkt/internal/lang"
 	"github.com/genesix/pkt/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -19,8 +20,10 @@ var initCmd = &cobra.Command{
 	Long: `Initialize an existing project for pkt management.
 This command takes an existing project folder and adds it to pkt's tracking system.
 
+Supports: JavaScript, Python, Go, Rust projects.
+
 If the project is outside pkt's projects folder, it will be moved there.
-The project must contain a valid package.json file.
+The project language is auto-detected from manifest files.
 
 Examples:
   pkt init .                        # Initialize current directory
@@ -51,18 +54,17 @@ Examples:
 			return fmt.Errorf("path is not a directory: %s", absPath)
 		}
 
-		// Check for package.json (required for Node.js project verification)
-		pkgJSONPath := filepath.Join(absPath, "package.json")
-		if _, err := os.Stat(pkgJSONPath); os.IsNotExist(err) {
-			return fmt.Errorf("no package.json found in %s\nThis command requires an existing Node.js project", absPath)
+		// Auto-detect project language
+		detectedLang, err := lang.Detect(absPath)
+		if err != nil {
+			return fmt.Errorf("could not detect project type in %s\nSupported: package.json (JS), pyproject.toml/requirements.txt (Python), go.mod (Go), Cargo.toml (Rust)", absPath)
 		}
 
-		// Get project name from directory name (not package.json)
-		// This ensures the name matches the path
+		// Get project name from directory name
 		projectName := filepath.Base(absPath)
 
 		// Detect package manager from lockfiles
-		pm := detectPackageManager(absPath)
+		packageManager := detectedLang.DetectPackageManager(absPath)
 
 		// Load config
 		cfg, err := config.Load()
@@ -108,53 +110,39 @@ Examples:
 		projectID := utils.GenerateID()
 
 		// Insert project into database
-		project, err := db.CreateProject(projectID, projectName, finalPath, pm)
+		project, err := db.CreateProject(projectID, projectName, finalPath, detectedLang.Name(), packageManager)
 		if err != nil {
 			return fmt.Errorf("failed to add project to database: %w", err)
 		}
 
-		// Parse and sync dependencies
-		deps, err := utils.ParsePackageJSON(finalPath)
-		if err != nil {
-			fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
-		} else if len(deps) > 0 {
-			if err := db.SyncDependencies(project.ID, deps); err != nil {
-				fmt.Printf("⚠️  Warning: failed to sync dependencies: %v\n", err)
-			} else {
-				fmt.Printf("✓ Synced %d dependencies\n", len(deps))
+		// Sync dependencies based on language
+		depCount := 0
+		if detectedLang.Name() == "javascript" {
+			deps, err := utils.ParsePackageJSON(finalPath)
+			if err != nil {
+				fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
+			} else if len(deps) > 0 {
+				if err := db.SyncDependencies(project.ID, deps); err != nil {
+					fmt.Printf("⚠️  Warning: failed to sync dependencies: %v\n", err)
+				} else {
+					depCount = len(deps)
+				}
 			}
 		}
+		// TODO: Add dependency parsing for other languages
 
 		fmt.Println()
-		fmt.Printf("✓ Initialized project: %s\n", projectName)
+		fmt.Printf("✓ Initialized %s project: %s\n", detectedLang.DisplayName(), projectName)
 		fmt.Printf("  ID: %s\n", project.ID)
 		fmt.Printf("  Path: %s\n", project.Path)
+		fmt.Printf("  Language: %s\n", detectedLang.DisplayName())
 		fmt.Printf("  Package Manager: %s\n", project.PackageManager)
+		if depCount > 0 {
+			fmt.Printf("  Dependencies: %d synced\n", depCount)
+		}
 
 		return nil
 	},
-}
-
-// detectPackageManager detects the package manager from lockfiles
-func detectPackageManager(projectPath string) string {
-	// Check for pnpm-lock.yaml
-	if _, err := os.Stat(filepath.Join(projectPath, "pnpm-lock.yaml")); err == nil {
-		return "pnpm"
-	}
-	// Check for bun.lockb
-	if _, err := os.Stat(filepath.Join(projectPath, "bun.lockb")); err == nil {
-		return "bun"
-	}
-	// Check for package-lock.json
-	if _, err := os.Stat(filepath.Join(projectPath, "package-lock.json")); err == nil {
-		return "npm"
-	}
-	// Check for yarn.lock and fallback to npm since we don't support yarn yet
-	if _, err := os.Stat(filepath.Join(projectPath, "yarn.lock")); err == nil {
-		return "npm" // Fallback to npm for yarn projects
-	}
-	// Default to pnpm
-	return "pnpm"
 }
 
 // getUniqueFolder returns a unique folder path, appending numbers if needed

@@ -11,12 +11,13 @@ type Project struct {
 	ID             string
 	Name           string
 	Path           string
+	Language       string
 	PackageManager string
 	CreatedAt      time.Time
 }
 
 // CreateProject inserts a new project into the database
-func CreateProject(id, name, path, pm string) (*Project, error) {
+func CreateProject(id, name, path, language, pm string) (*Project, error) {
 	if DB == nil {
 		return nil, fmt.Errorf("database not connected")
 	}
@@ -25,16 +26,17 @@ func CreateProject(id, name, path, pm string) (*Project, error) {
 		ID:             id,
 		Name:           name,
 		Path:           path,
+		Language:       language,
 		PackageManager: pm,
 		CreatedAt:      time.Now(),
 	}
 
 	query := `
-		INSERT INTO projects (id, name, path, package_manager, created_at)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO projects (id, name, path, language, package_manager, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := DB.Exec(query, project.ID, project.Name, project.Path, project.PackageManager, project.CreatedAt)
+	_, err := DB.Exec(query, project.ID, project.Name, project.Path, project.Language, project.PackageManager, project.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
@@ -49,12 +51,13 @@ func GetProjectByID(id string) (*Project, error) {
 	}
 
 	project := &Project{}
-	query := `SELECT id, name, path, package_manager, created_at FROM projects WHERE id = ?`
+	query := `SELECT id, name, path, language, package_manager, created_at FROM projects WHERE id = ?`
 
 	err := DB.QueryRow(query, id).Scan(
 		&project.ID,
 		&project.Name,
 		&project.Path,
+		&project.Language,
 		&project.PackageManager,
 		&project.CreatedAt,
 	)
@@ -76,12 +79,13 @@ func GetProjectByPath(path string) (*Project, error) {
 	}
 
 	project := &Project{}
-	query := `SELECT id, name, path, package_manager, created_at FROM projects WHERE path = ?`
+	query := `SELECT id, name, path, language, package_manager, created_at FROM projects WHERE path = ?`
 
 	err := DB.QueryRow(query, path).Scan(
 		&project.ID,
 		&project.Name,
 		&project.Path,
+		&project.Language,
 		&project.PackageManager,
 		&project.CreatedAt,
 	)
@@ -102,7 +106,7 @@ func GetProjectsByName(name string) ([]*Project, error) {
 		return nil, fmt.Errorf("database not connected")
 	}
 
-	query := `SELECT id, name, path, package_manager, created_at FROM projects WHERE name = ? ORDER BY created_at DESC`
+	query := `SELECT id, name, path, language, package_manager, created_at FROM projects WHERE name = ? ORDER BY created_at DESC`
 
 	rows, err := DB.Query(query, name)
 	if err != nil {
@@ -117,6 +121,41 @@ func GetProjectsByName(name string) ([]*Project, error) {
 			&project.ID,
 			&project.Name,
 			&project.Path,
+			&project.Language,
+			&project.PackageManager,
+			&project.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan project: %w", err)
+		}
+		projects = append(projects, project)
+	}
+
+	return projects, nil
+}
+
+// GetProjectsByLanguage retrieves all projects with a given language
+func GetProjectsByLanguage(language string) ([]*Project, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("database not connected")
+	}
+
+	query := `SELECT id, name, path, language, package_manager, created_at FROM projects WHERE language = ? ORDER BY created_at DESC`
+
+	rows, err := DB.Query(query, language)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query projects: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var projects []*Project
+	for rows.Next() {
+		project := &Project{}
+		err := rows.Scan(
+			&project.ID,
+			&project.Name,
+			&project.Path,
+			&project.Language,
 			&project.PackageManager,
 			&project.CreatedAt,
 		)
@@ -135,7 +174,7 @@ func ListAllProjects() ([]*Project, error) {
 		return nil, fmt.Errorf("database not connected")
 	}
 
-	query := `SELECT id, name, path, package_manager, created_at FROM projects ORDER BY created_at DESC`
+	query := `SELECT id, name, path, language, package_manager, created_at FROM projects ORDER BY created_at DESC`
 
 	rows, err := DB.Query(query)
 	if err != nil {
@@ -150,6 +189,7 @@ func ListAllProjects() ([]*Project, error) {
 			&project.ID,
 			&project.Name,
 			&project.Path,
+			&project.Language,
 			&project.PackageManager,
 			&project.CreatedAt,
 		)

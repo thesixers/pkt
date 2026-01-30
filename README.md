@@ -1,13 +1,14 @@
 # pkt (Project Kit)
 
-A cross-platform project manager and dependency tracker for JavaScript/Node.js projects.
+A cross-platform project manager and dependency tracker for **JavaScript, Python, Go, and Rust** projects.
 
 **pkt (Project Kit)** organizes your projects, tracks dependencies, and abstracts package manager differences — all from a single, unified CLI.
 
 ## Features
 
+- 🌐 **Multi-language support** — JavaScript, Python, Go, and Rust
 - 🗂️ **Centralized workspace** — All projects live in one configurable folder
-- 🔄 **Package manager agnostic** — Works with pnpm, npm, and bun seamlessly
+- 🔄 **Package manager agnostic** — Works with npm, pnpm, bun, pip, poetry, uv, cargo, and go mod
 - 📦 **Dependency tracking** — Database-backed tracking of all project dependencies
 - 🆔 **Unique project IDs** — No more name conflicts, reference projects by ID
 - 🚀 **Batch operations** — Add multiple packages in a single command
@@ -19,20 +20,35 @@ A cross-platform project manager and dependency tracker for JavaScript/Node.js p
 # First-time setup
 pkt start
 
-# Create a new project
+# Create a new project (prompts for language)
 pkt create my-app
 
-# Or initialize an existing project
+# Or specify language directly
+pkt create my-api -l python
+pkt create my-cli -l go
+pkt create my-lib -l rust
+
+# Initialize an existing project (auto-detects language)
 pkt init /path/to/existing-project
 
-# Add dependencies
+# Add dependencies (from within a project)
 cd my-app
-pkt add react react-dom
-pkt add -D typescript eslint
+pkt add react react-dom        # JavaScript
+pkt add requests flask         # Python
+pkt add -D typescript eslint   # Dev dependencies
 
-# Install all dependencies from package.json
+# Install all dependencies
 pkt install
 ```
+
+## Supported Languages
+
+| Language       | Package Managers | Manifest File                        | Lockfile(s)                                        |
+| -------------- | ---------------- | ------------------------------------ | -------------------------------------------------- |
+| **JavaScript** | npm, pnpm, bun   | `package.json`                       | `package-lock.json`, `pnpm-lock.yaml`, `bun.lockb` |
+| **Python**     | pip, poetry, uv  | `requirements.txt`, `pyproject.toml` | `poetry.lock`, `uv.lock`                           |
+| **Go**         | go mod           | `go.mod`                             | `go.sum`                                           |
+| **Rust**       | cargo            | `Cargo.toml`                         | `Cargo.lock`                                       |
 
 ## Installation
 
@@ -51,12 +67,14 @@ sudo mv pkt /usr/local/bin/
 
 ### Requirements
 
-| Requirement         | Details                            |
-| ------------------- | ---------------------------------- |
-| **Node.js**         | Required for npm/pnpm/bun          |
-| **Package Manager** | At least one of: pnpm, npm, or bun |
+| Language       | Requirements                  |
+| -------------- | ----------------------------- |
+| **JavaScript** | Node.js + (npm, pnpm, or bun) |
+| **Python**     | Python + (pip, poetry, or uv) |
+| **Go**         | Go 1.18+                      |
+| **Rust**       | Rust + Cargo                  |
 
-> **That's it!** No database server, no external dependencies. pkt uses an embedded SQLite database that's created automatically.
+> **Zero setup database!** pkt uses an embedded SQLite database that's created automatically.
 
 ### Cross-Platform Support
 
@@ -78,27 +96,29 @@ pkt compiles to a single binary with no external dependencies:
 
 ### Project Management
 
-| Command                | Description                                     |
-| ---------------------- | ----------------------------------------------- |
-| `pkt create <name>`    | Create a new empty project in workspace         |
-| `pkt init [path]`      | Initialize an existing project for pkt tracking |
-| `pkt list`             | List all tracked projects                       |
-| `pkt open <project>`   | Open project in configured editor               |
-| `pkt delete <project>` | Delete project from filesystem and database     |
-| `pkt rename <project>` | Rename a tracked project                        |
-| `pkt search <query>`   | Search through tracked projects                 |
+| Command                       | Description                                         |
+| ----------------------------- | --------------------------------------------------- |
+| `pkt create <name>`           | Create a new project in workspace                   |
+| `pkt create <name> -l <lang>` | Create project with specified language              |
+| `pkt init [path]`             | Initialize existing project (auto-detects language) |
+| `pkt list`                    | List all tracked projects                           |
+| `pkt list -l <lang>`          | List projects filtered by language                  |
+| `pkt open <project>`          | Open project in configured editor                   |
+| `pkt delete <project>`        | Delete project from filesystem and database         |
+| `pkt rename <project>`        | Rename a tracked project                            |
+| `pkt search <query>`          | Search through tracked projects                     |
 
 ### Dependency Management
 
 > **Note:** These commands must be run inside a tracked project folder.
 
-| Command               | Description                                |
-| --------------------- | ------------------------------------------ |
-| `pkt add <pkg...>`    | Add one or more dependencies               |
-| `pkt add -D <pkg...>` | Add as dev dependencies                    |
-| `pkt remove <pkg>`    | Remove a dependency                        |
-| `pkt install`         | Install all dependencies from package.json |
-| `pkt deps [project]`  | List project dependencies                  |
+| Command               | Description                  |
+| --------------------- | ---------------------------- |
+| `pkt add <pkg...>`    | Add one or more dependencies |
+| `pkt add -D <pkg...>` | Add as dev dependencies      |
+| `pkt remove <pkg...>` | Remove dependencies          |
+| `pkt install`         | Install all dependencies     |
+| `pkt deps [project]`  | List project dependencies    |
 
 ### Package Manager
 
@@ -116,55 +136,51 @@ pkt compiles to a single binary with no external dependencies:
 
 ## Command Details
 
-### `pkt start`
+### `pkt create <name>`
 
-First-time setup wizard. Configures:
+Create a new project with interactive language selection:
 
-- Projects root folder (default: `~/Documents/workspace`)
-- Default package manager (pnpm recommended)
-- Code editor command (e.g., `code`, `cursor`)
-
-Creates `~/.pkt/config.json` and initializes the SQLite database at `~/.pkt/pkt.db`.
+```bash
+pkt create my-app              # Prompts for language
+pkt create my-app -l javascript  # JavaScript project
+pkt create my-app -l python      # Python project
+pkt create my-app -l go          # Go project
+pkt create my-app -l rust        # Rust project
+```
 
 ### `pkt init [path]`
 
-Initialize an existing project for pkt management.
+Initialize an existing project. Language is auto-detected from manifest files:
 
 ```bash
 pkt init .                        # Current directory
 pkt init /path/to/my-project      # Specific project
 ```
 
-**Behavior:**
+**Auto-detection:**
 
-- Uses directory name as project name
-- Auto-detects package manager from lockfiles
-- Moves project to workspace if outside it
-- Syncs all dependencies to database
+- `package.json` → JavaScript
+- `pyproject.toml` / `requirements.txt` → Python
+- `go.mod` → Go
+- `Cargo.toml` → Rust
 
-### `pkt install`
+### `pkt list`
 
-Install all dependencies from `package.json`.
+List all projects with filtering options:
 
 ```bash
-cd my-project
-pkt install
+pkt list              # All projects
+pkt list -l python    # Only Python projects
+pkt list -l javascript # Only JavaScript projects
 ```
 
-**Behavior:**
+Output shows language and package manager for each project:
 
-- Separates prod and dev dependencies
-- Uses project's configured package manager
-- Syncs installed versions to database
-
-### `pkt add <packages...>`
-
-Add one or more packages to the current project.
-
-```bash
-pkt add axios                     # Single package
-pkt add axios lodash express      # Multiple packages
-pkt add -D typescript eslint      # Dev dependencies
+```
+NAME          LANGUAGE     PM      ID                           PATH
+my-rust-app   rust         cargo   01HJ9KJQ8D0XQZP2M3N4K5       /home/user/workspace/my-rust-app
+my-py-app     python       pip     01HJ9KJR2A1BQZP3M4N5K6       /home/user/workspace/my-py-app
+my-js-app     javascript   pnpm    01HJ9KJS5C2DRZQ4N5P6L7       /home/user/workspace/my-js-app
 ```
 
 ### Project Resolution
@@ -177,15 +193,35 @@ pkt open 01HJ9KJQ8D0XQZP2M3N4K5   # By ID
 pkt open .                        # Current directory
 ```
 
-If multiple projects share the same name, pkt prompts you to choose.
+## Package Manager Commands
 
-## Supported Package Managers
+### JavaScript
 
-| PM   | Add           | Remove          | Init           |
-| ---- | ------------- | --------------- | -------------- |
-| pnpm | `pnpm add`    | `pnpm remove`   | `pnpm init -y` |
-| npm  | `npm install` | `npm uninstall` | `npm init -y`  |
-| bun  | `bun add`     | `bun remove`    | `bun init`     |
+| PM   | Add           | Remove          | Install        | Init          |
+| ---- | ------------- | --------------- | -------------- | ------------- |
+| pnpm | `pnpm add`    | `pnpm remove`   | `pnpm install` | `pnpm init`   |
+| npm  | `npm install` | `npm uninstall` | `npm install`  | `npm init -y` |
+| bun  | `bun add`     | `bun remove`    | `bun install`  | `bun init -y` |
+
+### Python
+
+| PM     | Add           | Remove          | Install                           | Init                       |
+| ------ | ------------- | --------------- | --------------------------------- | -------------------------- |
+| uv     | `uv add`      | `uv remove`     | `uv sync`                         | `uv init`                  |
+| pip    | `pip install` | `pip uninstall` | `pip install -r requirements.txt` | (creates requirements.txt) |
+| poetry | `poetry add`  | `poetry remove` | `poetry install`                  | `poetry init -n`           |
+
+### Go
+
+| PM  | Add      | Remove        | Install           | Init          |
+| --- | -------- | ------------- | ----------------- | ------------- |
+| go  | `go get` | `go mod tidy` | `go mod download` | `go mod init` |
+
+### Rust
+
+| PM    | Add         | Remove         | Install       | Init         |
+| ----- | ----------- | -------------- | ------------- | ------------ |
+| cargo | `cargo add` | `cargo remove` | `cargo build` | `cargo init` |
 
 ## Configuration
 
@@ -202,14 +238,14 @@ Configuration is stored in `~/.pkt/config.json`:
 
 ## Database
 
-pkt uses an embedded SQLite database at `~/.pkt/pkt.db` to track:
+pkt uses an embedded SQLite database at `~/.pkt/pkt2.db` to track:
 
-- **Projects** — ID, name, path, package manager
+- **Projects** — ID, name, path, language, package manager
 - **Dependencies** — name, version, type (prod/dev) per project
 
-The database is always synced from `package.json` — the source of truth.
+The database is always synced from manifest files — the source of truth.
 
-> **Zero setup** — The database is created automatically on first run. No PostgreSQL, MySQL, or any external database required!
+> **Zero setup** — The database is created automatically on first run.
 
 ## Architecture
 
@@ -222,26 +258,19 @@ The database is always synced from `package.json` — the source of truth.
 
 ```
 pkt/
-├── cmd/          # CLI commands
+├── cmd/              # CLI commands
 ├── internal/
-│   ├── config/   # Configuration management
-│   ├── db/       # SQLite database operations
-│   ├── pm/       # Package manager abstraction
-│   └── utils/    # Utilities (fs, package.json, etc.)
+│   ├── config/       # Configuration management
+│   ├── db/           # SQLite database operations
+│   ├── lang/         # Language detection & abstraction
+│   ├── pm/           # Package manager abstraction
+│   └── utils/        # Utilities (fs, package.json, etc.)
 └── main.go
 ```
 
-### Why SQLite?
-
-- **Zero configuration** — No server to install or configure
-- **Single file** — Entire database in `~/.pkt/pkt.db`
-- **Cross-platform** — Pure Go driver, no CGO required
-- **Fast** — Optimized for local CLI usage
-- **Reliable** — ACID-compliant transactions
-
 ## Safety
 
-- pkt **only modifies** `package.json`
+- pkt **only modifies** manifest files (package.json, requirements.txt, etc.)
 - Never touches source files or configs
 - Database always syncs from filesystem
 - Duplicate names resolved interactively

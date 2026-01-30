@@ -7,28 +7,98 @@ import (
 
 // PackageManager defines the interface for package manager operations
 type PackageManager interface {
-	Add(workDir, pkg string, flags []string) error
-	AddMultiple(workDir string, packages []string, flags []string) error
-	Remove(workDir, pkg string) error
-	Init(workDir string) error
-	IsAvailable() bool
+	// Name returns the package manager name
 	Name() string
+
+	// Language returns the language this PM supports
+	Language() string
+
+	// Add adds packages to a project
+	Add(workDir string, packages []string, dev bool) error
+
+	// Remove removes packages from a project
+	Remove(workDir string, packages []string) error
+
+	// Install installs all dependencies
+	Install(workDir string) error
+
+	// Init initializes a new project
+	Init(workDir string) error
+
+	// IsAvailable checks if this package manager is installed
+	IsAvailable() bool
 }
 
-// Registry holds all available package managers
-var registry = map[string]PackageManager{
-	"pnpm": &PNPM{},
-	"npm":  &NPM{},
-	"bun":  &Bun{},
+// Registry holds all available package managers by language
+var registry = map[string]map[string]PackageManager{
+	"javascript": {
+		"pnpm": &PNPM{},
+		"npm":  &NPM{},
+		"bun":  &Bun{},
+	},
+	"python": {
+		"uv":     &UV{},
+		"pip":    &Pip{},
+		"poetry": &Poetry{},
+	},
+	"go": {
+		"go": &GoMod{},
+	},
+	"rust": {
+		"cargo": &Cargo{},
+	},
 }
 
-// GetPM retrieves a package manager by name
-func GetPM(name string) (PackageManager, error) {
-	pm, exists := registry[name]
+// Get retrieves a package manager by language and name
+func Get(language, name string) (PackageManager, error) {
+	langPMs, exists := registry[language]
 	if !exists {
-		return nil, fmt.Errorf("unknown package manager: %s", name)
+		return nil, fmt.Errorf("unsupported language: %s", language)
+	}
+	pm, exists := langPMs[name]
+	if !exists {
+		return nil, fmt.Errorf("unknown package manager '%s' for language '%s'", name, language)
 	}
 	return pm, nil
+}
+
+// GetPM retrieves a package manager by name (searches all languages)
+// Deprecated: Use Get(language, name) instead
+func GetPM(name string) (PackageManager, error) {
+	for _, langPMs := range registry {
+		if pm, exists := langPMs[name]; exists {
+			return pm, nil
+		}
+	}
+	return nil, fmt.Errorf("unknown package manager: %s", name)
+}
+
+// ListForLanguage returns available package managers for a language
+func ListForLanguage(language string) []string {
+	langPMs, exists := registry[language]
+	if !exists {
+		return nil
+	}
+	var available []string
+	for name, pm := range langPMs {
+		if pm.IsAvailable() {
+			available = append(available, name)
+		}
+	}
+	return available
+}
+
+// ListAvailable returns a list of all available package managers
+func ListAvailable() []string {
+	var available []string
+	for _, langPMs := range registry {
+		for name, pm := range langPMs {
+			if pm.IsAvailable() {
+				available = append(available, name)
+			}
+		}
+	}
+	return available
 }
 
 // CheckAvailability checks if a package manager is installed
@@ -37,30 +107,28 @@ func CheckAvailability(name string) bool {
 	return err == nil
 }
 
-// ListAvailable returns a list of available package managers
-func ListAvailable() []string {
-	var available []string
-	for name := range registry {
-		if CheckAvailability(name) {
-			available = append(available, name)
-		}
-	}
-	return available
-}
-
 // InstallPnpm installs pnpm globally using npm
 func InstallPnpm() error {
-	// Check if npm is available
 	if !CheckAvailability("npm") {
 		return fmt.Errorf("npm is required to install pnpm")
 	}
 
-	// Run npm install -g pnpm
 	cmd := exec.Command("npm", "install", "-g", "pnpm")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to install pnpm: %w\nOutput: %s", err, string(output))
 	}
 
+	return nil
+}
+
+// runCommand is a helper to run commands
+func runCommand(name string, args []string, workDir string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = workDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("command failed: %w\nOutput: %s", err, string(output))
+	}
 	return nil
 }

@@ -8,7 +8,7 @@ func TestSyncDependencies(t *testing.T) {
 	setupTestDB(t)
 
 	// Create a project first
-	_, err := CreateProject("DEPS001", "deps-test", "/tmp/deps-test", "pnpm")
+	_, err := CreateProject("DEPS001", "deps-test", "/tmp/deps-test", "javascript", "pnpm")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestSyncDependenciesReplaces(t *testing.T) {
 	setupTestDB(t)
 
 	// Create a project
-	_, err := CreateProject("DEPS002", "deps-replace-test", "/tmp/deps-replace", "npm")
+	_, err := CreateProject("DEPS002", "deps-replace-test", "/tmp/deps-replace", "javascript", "npm")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestGetDependenciesEmpty(t *testing.T) {
 	setupTestDB(t)
 
 	// Create a project with no dependencies
-	_, err := CreateProject("DEPS003", "no-deps", "/tmp/no-deps", "pnpm")
+	_, err := CreateProject("DEPS003", "no-deps", "/tmp/no-deps", "python", "uv")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestDependenciesCascadeDelete(t *testing.T) {
 	setupTestDB(t)
 
 	// Create a project with dependencies
-	_, err := CreateProject("DEPS004", "cascade-test", "/tmp/cascade", "npm")
+	_, err := CreateProject("DEPS004", "cascade-test", "/tmp/cascade", "javascript", "npm")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}

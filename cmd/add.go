@@ -21,10 +21,12 @@ var addCmd = &cobra.Command{
 	Long: `Add one or more dependencies to the current project using its package manager.
 Must be run inside a tracked project folder.
 
+Supports: JavaScript (npm/pnpm/bun), Python (uv/pip/poetry), Go, Rust
+
 Examples:
-  pkt add axios
-  pkt add axios nodemon express
-  pkt add -D typescript eslint`,
+  pkt add axios                    # JavaScript
+  pkt add requests flask           # Python
+  pkt add -D typescript eslint     # Dev dependencies`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		packages := args
@@ -41,43 +43,28 @@ Examples:
 			return fmt.Errorf("not in a tracked project. Run this command inside a project folder")
 		}
 
-		// Get package manager
-		packageManager, err := pm.GetPM(project.PackageManager)
+		// Get package manager for this language
+		packageManager, err := pm.Get(project.Language, project.PackageManager)
 		if err != nil {
 			return err
 		}
 
-		// Check if package.json exists, create if needed
-		pkgJSONPath := cwd + "/package.json"
-		if _, err := os.Stat(pkgJSONPath); os.IsNotExist(err) {
-			fmt.Println("Creating package.json...")
-			if err := utils.CreatePackageJSON(cwd, project.Name); err != nil {
-				return fmt.Errorf("failed to create package.json: %w", err)
-			}
-		}
-
-		// Build flags
-		var flags []string
-		if devFlag {
-			flags = append(flags, "-D")
-		}
-
-		// Add all dependencies at once
+		// Add dependencies
 		packagesStr := strings.Join(packages, " ")
 		fmt.Printf("Adding %s...\n", packagesStr)
 
-		if err := packageManager.AddMultiple(cwd, packages, flags); err != nil {
+		if err := packageManager.Add(cwd, packages, devFlag); err != nil {
 			return fmt.Errorf("failed to add dependencies: %w", err)
 		}
 
-		// Sync dependencies to database
-		deps, err := utils.ParsePackageJSON(cwd)
-		if err != nil {
-			return fmt.Errorf("failed to parse package.json: %w", err)
-		}
-
-		if err := db.SyncDependencies(project.ID, deps); err != nil {
-			return fmt.Errorf("failed to sync dependencies: %w", err)
+		// Sync dependencies to database (JavaScript only for now)
+		if project.Language == "javascript" {
+			deps, err := utils.ParsePackageJSON(cwd)
+			if err != nil {
+				fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
+			} else if err := db.SyncDependencies(project.ID, deps); err != nil {
+				fmt.Printf("⚠️  Warning: failed to sync dependencies: %v\n", err)
+			}
 		}
 
 		if len(packages) == 1 {
