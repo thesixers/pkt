@@ -13,9 +13,26 @@ var rootCmd = &cobra.Command{
 	Short: "Project Kit - A universal project manager for JS, Python, Go, and Rust",
 	Long: `pkt (Project Kit) is a universal project manager and dependency tracker.
 
-Supports: JavaScript (npm/pnpm/bun), Python (pip/poetry/uv), Go, and Rust (cargo).
+Supported Languages:
+  • JavaScript (npm, pnpm, bun)
+  • Python (pip, poetry, uv) — auto venv management
+  • Go (go mod)
+  • Rust (cargo)
 
-It provides a unified interface for managing all your projects across languages.`,
+Prerequisites:
+  • Git — required for 'pkt clone'
+  • Node.js — for JavaScript projects
+  • Python 3.8+ — for Python projects
+  • Go 1.18+ — for Go projects
+  • Rust/Cargo — for Rust projects
+
+Quick Start:
+  pkt start              Initialize pkt
+  pkt create my-app      Create new project
+  pkt init .             Track existing project
+  pkt add react flask    Add dependencies
+  pkt run dev            Run scripts
+  pkt clone <url>        Clone and track repo`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip config check for start command
 		if cmd.Name() == "start" {

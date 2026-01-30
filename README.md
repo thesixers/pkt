@@ -13,6 +13,37 @@ A cross-platform project manager and dependency tracker for **JavaScript, Python
 - 🆔 **Unique project IDs** — No more name conflicts, reference projects by ID
 - 🚀 **Batch operations** — Add multiple packages in a single command
 - ⚡ **Zero setup** — Embedded SQLite database, no external dependencies
+- 🐍 **Python venv** — Automatic virtual environment creation and management
+
+## Prerequisites
+
+Before using pkt, you need the following tools installed based on the languages you work with:
+
+### Required for All Users
+
+| Tool    | Why                      | Install                             |
+| ------- | ------------------------ | ----------------------------------- |
+| **Git** | Required for `pkt clone` | [git-scm.com](https://git-scm.com/) |
+
+### Per-Language Requirements
+
+| Language       | Required Tools              | Install                               |
+| -------------- | --------------------------- | ------------------------------------- |
+| **JavaScript** | Node.js + npm (or pnpm/bun) | [nodejs.org](https://nodejs.org/)     |
+| **Python**     | Python 3.8+                 | [python.org](https://www.python.org/) |
+| **Go**         | Go 1.18+                    | [go.dev](https://go.dev/)             |
+| **Rust**       | Rust + Cargo                | [rustup.rs](https://rustup.rs/)       |
+
+### Optional Package Managers
+
+| Package Manager | Language   | Install                                                             |
+| --------------- | ---------- | ------------------------------------------------------------------- |
+| pnpm            | JavaScript | `npm install -g pnpm`                                               |
+| bun             | JavaScript | [bun.sh](https://bun.sh/)                                           |
+| poetry          | Python     | `pip install poetry`                                                |
+| uv              | Python     | `pip install uv` or [docs.astral.sh/uv](https://docs.astral.sh/uv/) |
+
+> **Note:** pkt will use whatever package manager is available. For JavaScript, it prefers pnpm > bun > npm. For Python, it prefers uv > poetry > pip.
 
 ## Quick Start
 
@@ -36,6 +67,10 @@ cd my-app
 pkt add react react-dom        # JavaScript
 pkt add requests flask         # Python
 pkt add -D typescript eslint   # Dev dependencies
+
+# Run scripts
+pkt run dev                    # npm/pnpm run dev
+pkt run test                   # Run tests for any language
 
 # Install all dependencies
 pkt install
@@ -65,17 +100,6 @@ go build -o pkt .
 sudo mv pkt /usr/local/bin/
 ```
 
-### Requirements
-
-| Language       | Requirements                  |
-| -------------- | ----------------------------- |
-| **JavaScript** | Node.js + (npm, pnpm, or bun) |
-| **Python**     | Python + (pip, poetry, or uv) |
-| **Go**         | Go 1.18+                      |
-| **Rust**       | Rust + Cargo                  |
-
-> **Zero setup database!** pkt uses an embedded SQLite database that's created automatically.
-
 ### Cross-Platform Support
 
 pkt compiles to a single binary with no external dependencies:
@@ -103,6 +127,7 @@ pkt compiles to a single binary with no external dependencies:
 | `pkt init [path]`             | Initialize existing project (auto-detects language) |
 | `pkt list`                    | List all tracked projects                           |
 | `pkt list -l <lang>`          | List projects filtered by language                  |
+| `pkt clone <url>`             | Clone repo and auto-track ⭐ NEW                    |
 | `pkt open <project>`          | Open project in configured editor                   |
 | `pkt delete <project>`        | Delete project from filesystem and database         |
 | `pkt rename <project>`        | Rename a tracked project                            |
@@ -112,13 +137,31 @@ pkt compiles to a single binary with no external dependencies:
 
 > **Note:** These commands must be run inside a tracked project folder.
 
-| Command               | Description                  |
-| --------------------- | ---------------------------- |
-| `pkt add <pkg...>`    | Add one or more dependencies |
-| `pkt add -D <pkg...>` | Add as dev dependencies      |
-| `pkt remove <pkg...>` | Remove dependencies          |
-| `pkt install`         | Install all dependencies     |
-| `pkt deps [project]`  | List project dependencies    |
+| Command               | Description                        |
+| --------------------- | ---------------------------------- |
+| `pkt add <pkg...>`    | Add one or more dependencies       |
+| `pkt add -D <pkg...>` | Add as dev dependencies            |
+| `pkt remove <pkg...>` | Remove dependencies                |
+| `pkt install`         | Install all dependencies           |
+| `pkt update [pkg...]` | Update dependencies ⭐ NEW         |
+| `pkt outdated`        | Check for outdated packages ⭐ NEW |
+| `pkt deps [project]`  | List project dependencies          |
+
+### Running Scripts
+
+| Command                    | Description                                              |
+| -------------------------- | -------------------------------------------------------- |
+| `pkt run <script>`         | Run a script from package.json or common commands ⭐ NEW |
+| `pkt exec <project> <cmd>` | Run command in another project's context ⭐ NEW          |
+
+**`pkt run` examples by language:**
+
+| Language       | Commands                                               |
+| -------------- | ------------------------------------------------------ |
+| **JavaScript** | `pkt run dev`, `pkt run build`, `pkt run <any-script>` |
+| **Python**     | `pkt run test` (pytest), `pkt run main.py`             |
+| **Go**         | `pkt run run`, `pkt run test`, `pkt run build`         |
+| **Rust**       | `pkt run run`, `pkt run test`, `pkt run build`         |
 
 ### Package Manager
 
@@ -134,94 +177,23 @@ pkt compiles to a single binary with no external dependencies:
 | `pkt config editor <cmd>` | Change editor (e.g., code, cursor) |
 | `pkt config pm <pm>`      | Change default package manager     |
 
-## Command Details
+## Python Virtual Environment
 
-### `pkt create <name>`
+pkt automatically manages Python virtual environments:
 
-Create a new project with interactive language selection:
-
-```bash
-pkt create my-app              # Prompts for language
-pkt create my-app -l javascript  # JavaScript project
-pkt create my-app -l python      # Python project
-pkt create my-app -l go          # Go project
-pkt create my-app -l rust        # Rust project
-```
-
-### `pkt init [path]`
-
-Initialize an existing project. Language is auto-detected from manifest files:
+- **pip projects**: Auto-creates `.venv/` on first `pkt add`
+- **poetry projects**: Configures `virtualenvs.in-project = true`
+- **uv projects**: Uses uv's built-in venv management
 
 ```bash
-pkt init .                        # Current directory
-pkt init /path/to/my-project      # Specific project
+# For pip projects, pkt will:
+# 1. Create .venv/ if it doesn't exist
+# 2. Install packages in the venv
+# 3. Update requirements.txt
+
+pkt add requests
+# → Creates .venv/ → pip install requests → pip freeze > requirements.txt
 ```
-
-**Auto-detection:**
-
-- `package.json` → JavaScript
-- `pyproject.toml` / `requirements.txt` → Python
-- `go.mod` → Go
-- `Cargo.toml` → Rust
-
-### `pkt list`
-
-List all projects with filtering options:
-
-```bash
-pkt list              # All projects
-pkt list -l python    # Only Python projects
-pkt list -l javascript # Only JavaScript projects
-```
-
-Output shows language and package manager for each project:
-
-```
-NAME          LANGUAGE     PM      ID                           PATH
-my-rust-app   rust         cargo   01HJ9KJQ8D0XQZP2M3N4K5       /home/user/workspace/my-rust-app
-my-py-app     python       pip     01HJ9KJR2A1BQZP3M4N5K6       /home/user/workspace/my-py-app
-my-js-app     javascript   pnpm    01HJ9KJS5C2DRZQ4N5P6L7       /home/user/workspace/my-js-app
-```
-
-### Project Resolution
-
-Commands that accept `<project>` support multiple formats:
-
-```bash
-pkt open my-app                   # By name
-pkt open 01HJ9KJQ8D0XQZP2M3N4K5   # By ID
-pkt open .                        # Current directory
-```
-
-## Package Manager Commands
-
-### JavaScript
-
-| PM   | Add           | Remove          | Install        | Init          |
-| ---- | ------------- | --------------- | -------------- | ------------- |
-| pnpm | `pnpm add`    | `pnpm remove`   | `pnpm install` | `pnpm init`   |
-| npm  | `npm install` | `npm uninstall` | `npm install`  | `npm init -y` |
-| bun  | `bun add`     | `bun remove`    | `bun install`  | `bun init -y` |
-
-### Python
-
-| PM     | Add           | Remove          | Install                           | Init                       |
-| ------ | ------------- | --------------- | --------------------------------- | -------------------------- |
-| uv     | `uv add`      | `uv remove`     | `uv sync`                         | `uv init`                  |
-| pip    | `pip install` | `pip uninstall` | `pip install -r requirements.txt` | (creates requirements.txt) |
-| poetry | `poetry add`  | `poetry remove` | `poetry install`                  | `poetry init -n`           |
-
-### Go
-
-| PM  | Add      | Remove        | Install           | Init          |
-| --- | -------- | ------------- | ----------------- | ------------- |
-| go  | `go get` | `go mod tidy` | `go mod download` | `go mod init` |
-
-### Rust
-
-| PM    | Add         | Remove         | Install       | Init         |
-| ----- | ----------- | -------------- | ------------- | ------------ |
-| cargo | `cargo add` | `cargo remove` | `cargo build` | `cargo init` |
 
 ## Configuration
 
@@ -242,8 +214,6 @@ pkt uses an embedded SQLite database at `~/.pkt/pkt2.db` to track:
 
 - **Projects** — ID, name, path, language, package manager
 - **Dependencies** — name, version, type (prod/dev) per project
-
-The database is always synced from manifest files — the source of truth.
 
 > **Zero setup** — The database is created automatically on first run.
 
