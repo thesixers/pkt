@@ -57,12 +57,12 @@ Examples:
 			return fmt.Errorf("failed to add dependencies: %w", err)
 		}
 
-		// Sync dependencies to database (JavaScript only for now)
-		if project.Language == "javascript" {
-			deps, err := utils.ParsePackageJSON(cwd)
-			if err != nil {
-				fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
-			} else if err := db.SyncDependencies(project.ID, deps); err != nil {
+		// Sync dependencies to database for all languages
+		deps, err := utils.ParseDependencies(cwd, project.Language)
+		if err != nil {
+			fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
+		} else if len(deps) > 0 {
+			if err := db.SyncDependencies(project.ID, deps); err != nil {
 				fmt.Printf("⚠️  Warning: failed to sync dependencies: %v\n", err)
 			}
 		}

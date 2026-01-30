@@ -39,10 +39,10 @@ If no argument is provided, uses the current directory.`,
 			}
 		}
 
-		// Parse package.json and sync
-		deps, err := utils.ParsePackageJSON(project.Path)
+		// Parse dependencies based on project language
+		deps, err := utils.ParseDependencies(project.Path, project.Language)
 		if err != nil {
-			return fmt.Errorf("failed to parse package.json: %w", err)
+			return fmt.Errorf("failed to parse dependencies: %w", err)
 		}
 
 		// Sync to database

@@ -117,19 +117,16 @@ Examples:
 
 		// Sync dependencies based on language
 		depCount := 0
-		if detectedLang.Name() == "javascript" {
-			deps, err := utils.ParsePackageJSON(finalPath)
-			if err != nil {
-				fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
-			} else if len(deps) > 0 {
-				if err := db.SyncDependencies(project.ID, deps); err != nil {
-					fmt.Printf("⚠️  Warning: failed to sync dependencies: %v\n", err)
-				} else {
-					depCount = len(deps)
-				}
+		deps, err := utils.ParseDependencies(finalPath, detectedLang.Name())
+		if err != nil {
+			fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
+		} else if len(deps) > 0 {
+			if err := db.SyncDependencies(project.ID, deps); err != nil {
+				fmt.Printf("⚠️  Warning: failed to sync dependencies: %v\n", err)
+			} else {
+				depCount = len(deps)
 			}
 		}
-		// TODO: Add dependency parsing for other languages
 
 		fmt.Println()
 		fmt.Printf("✓ Initialized %s project: %s\n", detectedLang.DisplayName(), projectName)

@@ -1,12 +1,15 @@
 package pm
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 // UV implements PackageManager for uv (fast Python package manager)
+// UV handles venv automatically
 type UV struct{}
 
 func (u *UV) Name() string {
@@ -44,7 +47,7 @@ func (u *UV) IsAvailable() bool {
 	return err == nil
 }
 
-// Pip implements PackageManager for pip
+// Pip implements PackageManager for pip with venv support
 type Pip struct{}
 
 func (p *Pip) Name() string {
@@ -55,11 +58,61 @@ func (p *Pip) Language() string {
 	return "python"
 }
 
+// venvPath returns the path to the venv directory
+func (p *Pip) venvPath(workDir string) string {
+	return filepath.Join(workDir, ".venv")
+}
+
+// venvPip returns the pip executable path inside venv
+func (p *Pip) venvPip(workDir string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(p.venvPath(workDir), "Scripts", "pip.exe")
+	}
+	return filepath.Join(p.venvPath(workDir), "bin", "pip")
+}
+
+// ensureVenv creates a virtual environment if it doesn't exist
+func (p *Pip) ensureVenv(workDir string) error {
+	venvDir := p.venvPath(workDir)
+
+	// Check if venv already exists
+	if _, err := os.Stat(venvDir); err == nil {
+		return nil
+	}
+
+	// Create venv using python -m venv
+	fmt.Println("Creating virtual environment...")
+	cmd := exec.Command("python3", "-m", "venv", ".venv")
+	cmd.Dir = workDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		// Try python instead of python3
+		cmd = exec.Command("python", "-m", "venv", ".venv")
+		cmd.Dir = workDir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to create venv: %w", err)
+		}
+	}
+	fmt.Println("✓ Created .venv/")
+	return nil
+}
+
 func (p *Pip) Add(workDir string, packages []string, dev bool) error {
-	args := append([]string{"install"}, packages...)
-	if err := runCommand("pip", args, workDir); err != nil {
+	// Ensure venv exists
+	if err := p.ensureVenv(workDir); err != nil {
 		return err
 	}
+
+	// Install using venv pip
+	pip := p.venvPip(workDir)
+	args := append([]string{"install"}, packages...)
+	if err := runCommand(pip, args, workDir); err != nil {
+		return err
+	}
+
 	// Update requirements.txt
 	return p.freezeRequirements(workDir, dev)
 }
@@ -71,7 +124,8 @@ func (p *Pip) freezeRequirements(workDir string, dev bool) error {
 	}
 	reqPath := filepath.Join(workDir, filename)
 
-	cmd := exec.Command("pip", "freeze")
+	pip := p.venvPip(workDir)
+	cmd := exec.Command(pip, "freeze")
 	cmd.Dir = workDir
 	output, err := cmd.Output()
 	if err != nil {
@@ -82,19 +136,41 @@ func (p *Pip) freezeRequirements(workDir string, dev bool) error {
 }
 
 func (p *Pip) Remove(workDir string, packages []string) error {
+	// Ensure venv exists
+	if err := p.ensureVenv(workDir); err != nil {
+		return err
+	}
+
+	pip := p.venvPip(workDir)
 	args := append([]string{"uninstall", "-y"}, packages...)
-	return runCommand("pip", args, workDir)
+	if err := runCommand(pip, args, workDir); err != nil {
+		return err
+	}
+
+	// Update requirements.txt
+	return p.freezeRequirements(workDir, false)
 }
 
 func (p *Pip) Install(workDir string) error {
+	// Ensure venv exists
+	if err := p.ensureVenv(workDir); err != nil {
+		return err
+	}
+
 	reqPath := filepath.Join(workDir, "requirements.txt")
 	if _, err := os.Stat(reqPath); err == nil {
-		return runCommand("pip", []string{"install", "-r", "requirements.txt"}, workDir)
+		pip := p.venvPip(workDir)
+		return runCommand(pip, []string{"install", "-r", "requirements.txt"}, workDir)
 	}
 	return nil
 }
 
 func (p *Pip) Init(workDir string) error {
+	// Create venv
+	if err := p.ensureVenv(workDir); err != nil {
+		return err
+	}
+
 	// Create empty requirements.txt
 	reqPath := filepath.Join(workDir, "requirements.txt")
 	return os.WriteFile(reqPath, []byte("# Python dependencies\n"), 0644)
@@ -102,10 +178,14 @@ func (p *Pip) Init(workDir string) error {
 
 func (p *Pip) IsAvailable() bool {
 	_, err := exec.LookPath("pip")
+	if err != nil {
+		_, err = exec.LookPath("pip3")
+	}
 	return err == nil
 }
 
 // Poetry implements PackageManager for poetry
+// Poetry handles venv automatically when in-project = true
 type Poetry struct{}
 
 func (p *Poetry) Name() string {
@@ -135,7 +215,12 @@ func (p *Poetry) Install(workDir string) error {
 }
 
 func (p *Poetry) Init(workDir string) error {
-	return runCommand("poetry", []string{"init", "-n"}, workDir)
+	// Initialize poetry project
+	if err := runCommand("poetry", []string{"init", "-n"}, workDir); err != nil {
+		return err
+	}
+	// Configure poetry to create venv in project directory
+	return runCommand("poetry", []string{"config", "virtualenvs.in-project", "true", "--local"}, workDir)
 }
 
 func (p *Poetry) IsAvailable() bool {

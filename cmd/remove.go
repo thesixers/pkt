@@ -46,12 +46,12 @@ Must be run inside a tracked project folder.`,
 			return fmt.Errorf("failed to remove dependencies: %w", err)
 		}
 
-		// Sync dependencies to database (JavaScript only for now)
-		if project.Language == "javascript" {
-			deps, err := utils.ParsePackageJSON(cwd)
-			if err != nil {
-				fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
-			} else if err := db.SyncDependencies(project.ID, deps); err != nil {
+		// Sync dependencies to database for all languages
+		deps, err := utils.ParseDependencies(cwd, project.Language)
+		if err != nil {
+			fmt.Printf("⚠️  Warning: failed to parse dependencies: %v\n", err)
+		} else {
+			if err := db.SyncDependencies(project.ID, deps); err != nil {
 				fmt.Printf("⚠️  Warning: failed to sync dependencies: %v\n", err)
 			}
 		}
