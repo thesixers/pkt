@@ -44,23 +44,109 @@ This must be run before using any other pkt commands.`,
 			}
 		}
 
-		// Step 1: Check for npm
-		fmt.Println("📦 Checking required tools...")
+		// Step 1: Check all language tools
+		fmt.Println("📦 Checking available languages and tools...")
+		fmt.Println()
+
+		// JavaScript
+		fmt.Println("  JavaScript:")
 		npmAvailable := checkTool("npm")
-		if !npmAvailable {
-			return fmt.Errorf("npm is required to install pnpm - please install npm first from https://nodejs.org and then run 'pkt start' again")
-		}
-		fmt.Println("  ✅ npm detected")
-
-		// Step 2: Check for pnpm and offer to install
 		pnpmAvailable := checkTool("pnpm")
-		if !pnpmAvailable {
-			fmt.Println("  ⚠️  pnpm not detected")
+		bunAvailable := checkTool("bun")
+		jsAvailable := npmAvailable || pnpmAvailable || bunAvailable
 
-			// Confirm installation
+		if npmAvailable {
+			fmt.Println("    ✅ npm")
+		}
+		if pnpmAvailable {
+			fmt.Println("    ✅ pnpm")
+		}
+		if bunAvailable {
+			fmt.Println("    ✅ bun")
+		}
+		if !jsAvailable {
+			fmt.Println("    ❌ No JavaScript tools found (install Node.js)")
+		}
+
+		// Python
+		fmt.Println("  Python:")
+		pythonAvailable := checkTool("python3") || checkTool("python")
+		pipAvailable := checkTool("pip") || checkTool("pip3")
+		poetryAvailable := checkTool("poetry")
+		uvAvailable := checkTool("uv")
+		pyAvailable := pythonAvailable
+
+		if pythonAvailable {
+			fmt.Println("    ✅ python")
+		} else {
+			fmt.Println("    ❌ python not found")
+		}
+		if pipAvailable {
+			fmt.Println("    ✅ pip")
+		}
+		if poetryAvailable {
+			fmt.Println("    ✅ poetry")
+		}
+		if uvAvailable {
+			fmt.Println("    ✅ uv")
+		}
+
+		// Go
+		fmt.Println("  Go:")
+		goAvailable := checkTool("go")
+		if goAvailable {
+			fmt.Println("    ✅ go")
+		} else {
+			fmt.Println("    ❌ go not found (install from go.dev)")
+		}
+
+		// Rust
+		fmt.Println("  Rust:")
+		cargoAvailable := checkTool("cargo")
+		if cargoAvailable {
+			fmt.Println("    ✅ cargo")
+		} else {
+			fmt.Println("    ❌ cargo not found (install from rustup.rs)")
+		}
+
+		// Git (required for clone)
+		fmt.Println("  Git:")
+		gitAvailable := checkTool("git")
+		if gitAvailable {
+			fmt.Println("    ✅ git")
+		} else {
+			fmt.Println("    ⚠️  git not found (required for 'pkt clone')")
+		}
+
+		fmt.Println()
+
+		// Summary of available languages
+		var availableLangs []string
+		if jsAvailable {
+			availableLangs = append(availableLangs, "JavaScript")
+		}
+		if pyAvailable {
+			availableLangs = append(availableLangs, "Python")
+		}
+		if goAvailable {
+			availableLangs = append(availableLangs, "Go")
+		}
+		if cargoAvailable {
+			availableLangs = append(availableLangs, "Rust")
+		}
+
+		if len(availableLangs) == 0 {
+			return fmt.Errorf("no supported languages found. Please install at least one: Node.js, Python, Go, or Rust")
+		}
+
+		fmt.Printf("📋 Available languages: %s\n", strings.Join(availableLangs, ", "))
+		fmt.Println()
+
+		// Offer to install pnpm if npm is available but pnpm isn't
+		if npmAvailable && !pnpmAvailable {
 			var shouldInstall bool
 			prompt := &survey.Confirm{
-				Message: "pnpm is the recommended package manager. Install it now via npm?",
+				Message: "pnpm is the recommended JS package manager. Install it now?",
 				Default: true,
 			}
 			if err := survey.AskOne(prompt, &shouldInstall); err != nil {
@@ -77,8 +163,6 @@ This must be run before using any other pkt commands.`,
 					pnpmAvailable = true
 				}
 			}
-		} else {
-			fmt.Println("  ✅ pnpm detected")
 		}
 
 		// Prompt for configuration
@@ -93,7 +177,7 @@ This must be run before using any other pkt commands.`,
 		}
 		defaultRoot := filepath.Join(home, "Documents", "workspace")
 
-		// Step 3: Get configuration from user
+		// Configuration setup
 		fmt.Println("\n⚙️  Configuration setup...")
 
 		// Projects root
@@ -116,19 +200,24 @@ This must be run before using any other pkt commands.`,
 		}
 		fmt.Printf("  ✅ Projects folder: %s\n", projectsRoot)
 
-		// Default package manager
+		// Default package manager (from all available)
 		available := pm.ListAvailable()
 		if len(available) == 0 {
-			return fmt.Errorf("no package managers found. Please install pnpm, npm, or bun")
+			return fmt.Errorf("no package managers found")
 		}
 
-		defaultPMOption := "pnpm"
-		if !pnpmAvailable && len(available) > 0 {
+		// Determine best default
+		defaultPMOption := "npm"
+		if pnpmAvailable {
+			defaultPMOption = "pnpm"
+		} else if bunAvailable {
+			defaultPMOption = "bun"
+		} else if len(available) > 0 {
 			defaultPMOption = available[0]
 		}
 
 		promptPM := &survey.Select{
-			Message: "Default package manager:",
+			Message: "Default package manager (for JavaScript):",
 			Options: available,
 			Default: defaultPMOption,
 		}
@@ -139,7 +228,7 @@ This must be run before using any other pkt commands.`,
 
 		// Editor command
 		promptEditor := &survey.Input{
-			Message: "Editor command (e.g., code, vim, nano):",
+			Message: "Editor command (e.g., code, cursor, vim):",
 			Default: "code",
 		}
 		if err := survey.AskOne(promptEditor, &editorCmd); err != nil {
@@ -149,12 +238,12 @@ This must be run before using any other pkt commands.`,
 		// Verify editor command exists
 		editorAvailable := checkTool(editorCmd)
 		if !editorAvailable {
-			fmt.Printf("  ⚠️  Warning: '%s' command not found. You can update this later with 'pkt config editor <cmd>'\n", editorCmd)
+			fmt.Printf("  ⚠️  Warning: '%s' command not found. Update later with 'pkt config editor <cmd>'\n", editorCmd)
 		} else {
 			fmt.Printf("  ✅ Editor command: %s\n", editorCmd)
 		}
 
-		// Step 4: Save configuration
+		// Save configuration
 		fmt.Println("\n💾 Saving configuration...")
 
 		cfg := &config.Config{
@@ -169,7 +258,7 @@ This must be run before using any other pkt commands.`,
 		}
 		fmt.Println("  ✅ Configuration saved to ~/.pkt/config.json")
 
-		// Step 5: Initialize database
+		// Initialize database
 		fmt.Println("\n🗄️  Initializing database...")
 		if err := db.InitDB(); err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
@@ -180,19 +269,48 @@ This must be run before using any other pkt commands.`,
 		fmt.Println("\n" + strings.Repeat("=", 60))
 		fmt.Println("🎉 pkt is ready to use!")
 		fmt.Println(strings.Repeat("=", 60))
-		fmt.Println("\n✅ Summary:")
-		fmt.Println("  ✅ npm detected")
-		if pnpmAvailable {
-			fmt.Println("  ✅ pnpm detected")
+
+		fmt.Println("\n✅ Supported Languages:")
+		if jsAvailable {
+			jsPMs := []string{}
+			if npmAvailable {
+				jsPMs = append(jsPMs, "npm")
+			}
+			if pnpmAvailable {
+				jsPMs = append(jsPMs, "pnpm")
+			}
+			if bunAvailable {
+				jsPMs = append(jsPMs, "bun")
+			}
+			fmt.Printf("  • JavaScript (%s)\n", strings.Join(jsPMs, ", "))
 		}
-		fmt.Println("  ✅ SQLite database initialized")
-		fmt.Printf("  ✅ Projects folder: %s\n", projectsRoot)
-		fmt.Printf("  ✅ Default package manager: %s\n", defaultPM)
-		fmt.Printf("  ✅ Editor command: %s\n", editorCmd)
+		if pyAvailable {
+			pyPMs := []string{}
+			if pipAvailable {
+				pyPMs = append(pyPMs, "pip")
+			}
+			if poetryAvailable {
+				pyPMs = append(pyPMs, "poetry")
+			}
+			if uvAvailable {
+				pyPMs = append(pyPMs, "uv")
+			}
+			if len(pyPMs) == 0 {
+				pyPMs = append(pyPMs, "pip")
+			}
+			fmt.Printf("  • Python (%s)\n", strings.Join(pyPMs, ", "))
+		}
+		if goAvailable {
+			fmt.Println("  • Go (go mod)")
+		}
+		if cargoAvailable {
+			fmt.Println("  • Rust (cargo)")
+		}
 
 		fmt.Println("\n📚 Next steps:")
-		fmt.Println("  • Create a project: pkt create <project-name>")
+		fmt.Println("  • Create a project: pkt create <name>")
 		fmt.Println("  • Initialize existing: pkt init <path>")
+		fmt.Println("  • Clone a repo: pkt clone <url>")
 		fmt.Println("  • List projects: pkt list")
 
 		return nil
