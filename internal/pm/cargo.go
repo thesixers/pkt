@@ -35,6 +35,36 @@ func (c *Cargo) Init(workDir string) error {
 	return runCommand("cargo", []string{"init", "."}, workDir)
 }
 
+func (c *Cargo) Run(workDir string, script string, args []string) error {
+	switch script {
+	case "build":
+		return runCommandInteractive("cargo", []string{"build"}, workDir)
+	case "test":
+		cmdArgs := []string{"test"}
+		cmdArgs = append(cmdArgs, args...)
+		return runCommandInteractive("cargo", cmdArgs, workDir)
+	case "run":
+		cmdArgs := []string{"run"}
+		cmdArgs = append(cmdArgs, args...)
+		return runCommandInteractive("cargo", cmdArgs, workDir)
+	default:
+		// Default to cargo run with the script as binary name
+		cmdArgs := []string{"run", "--bin", script}
+		cmdArgs = append(cmdArgs, args...)
+		return runCommandInteractive("cargo", cmdArgs, workDir)
+	}
+}
+
+func (c *Cargo) Update(workDir string, packages []string) error {
+	args := []string{"update"}
+	if len(packages) > 0 {
+		for _, pkg := range packages {
+			args = append(args, "-p", pkg)
+		}
+	}
+	return runCommand("cargo", args, workDir)
+}
+
 func (c *Cargo) IsAvailable() bool {
 	_, err := exec.LookPath("cargo")
 	return err == nil

@@ -35,6 +35,18 @@ func (p *PNPM) Init(workDir string) error {
 	return runCommand("pnpm", []string{"init"}, workDir)
 }
 
+func (p *PNPM) Run(workDir string, script string, args []string) error {
+	cmdArgs := []string{"run", script}
+	cmdArgs = append(cmdArgs, args...)
+	return runCommandInteractive("pnpm", cmdArgs, workDir)
+}
+
+func (p *PNPM) Update(workDir string, packages []string) error {
+	args := []string{"update"}
+	args = append(args, packages...)
+	return runCommand("pnpm", args, workDir)
+}
+
 func (p *PNPM) IsAvailable() bool {
 	_, err := exec.LookPath("pnpm")
 	return err == nil

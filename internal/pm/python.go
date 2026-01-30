@@ -42,6 +42,21 @@ func (u *UV) Init(workDir string) error {
 	return runCommand("uv", []string{"init"}, workDir)
 }
 
+func (u *UV) Run(workDir string, script string, args []string) error {
+	cmdArgs := []string{"run", script}
+	cmdArgs = append(cmdArgs, args...)
+	return runCommandInteractive("uv", cmdArgs, workDir)
+}
+
+func (u *UV) Update(workDir string, packages []string) error {
+	if len(packages) == 0 {
+		return runCommand("uv", []string{"lock", "--upgrade"}, workDir)
+	}
+	args := []string{"lock", "--upgrade-package"}
+	args = append(args, packages...)
+	return runCommand("uv", args, workDir)
+}
+
 func (u *UV) IsAvailable() bool {
 	_, err := exec.LookPath("uv")
 	return err == nil
@@ -69,6 +84,14 @@ func (p *Pip) venvPip(workDir string) string {
 		return filepath.Join(p.venvPath(workDir), "Scripts", "pip.exe")
 	}
 	return filepath.Join(p.venvPath(workDir), "bin", "pip")
+}
+
+// venvPython returns the python executable path inside venv
+func (p *Pip) venvPython(workDir string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(p.venvPath(workDir), "Scripts", "python.exe")
+	}
+	return filepath.Join(p.venvPath(workDir), "bin", "python")
 }
 
 // ensureVenv creates a virtual environment if it doesn't exist
@@ -176,6 +199,51 @@ func (p *Pip) Init(workDir string) error {
 	return os.WriteFile(reqPath, []byte("# Python dependencies\n"), 0644)
 }
 
+func (p *Pip) Run(workDir string, script string, args []string) error {
+	// Ensure venv exists
+	if err := p.ensureVenv(workDir); err != nil {
+		return err
+	}
+
+	python := p.venvPython(workDir)
+
+	// Handle common scripts
+	switch script {
+	case "test":
+		// Run pytest if available, else python -m pytest
+		cmdArgs := []string{"-m", "pytest"}
+		cmdArgs = append(cmdArgs, args...)
+		return runCommandInteractive(python, cmdArgs, workDir)
+	default:
+		// Try to run as a Python file
+		cmdArgs := []string{script}
+		cmdArgs = append(cmdArgs, args...)
+		return runCommandInteractive(python, cmdArgs, workDir)
+	}
+}
+
+func (p *Pip) Update(workDir string, packages []string) error {
+	// Ensure venv exists
+	if err := p.ensureVenv(workDir); err != nil {
+		return err
+	}
+
+	pip := p.venvPip(workDir)
+
+	if len(packages) == 0 {
+		// Update all packages from requirements.txt
+		reqPath := filepath.Join(workDir, "requirements.txt")
+		if _, err := os.Stat(reqPath); err == nil {
+			return runCommand(pip, []string{"install", "-U", "-r", "requirements.txt"}, workDir)
+		}
+		return nil
+	}
+
+	args := []string{"install", "-U"}
+	args = append(args, packages...)
+	return runCommand(pip, args, workDir)
+}
+
 func (p *Pip) IsAvailable() bool {
 	_, err := exec.LookPath("pip")
 	if err != nil {
@@ -221,6 +289,18 @@ func (p *Poetry) Init(workDir string) error {
 	}
 	// Configure poetry to create venv in project directory
 	return runCommand("poetry", []string{"config", "virtualenvs.in-project", "true", "--local"}, workDir)
+}
+
+func (p *Poetry) Run(workDir string, script string, args []string) error {
+	cmdArgs := []string{"run", script}
+	cmdArgs = append(cmdArgs, args...)
+	return runCommandInteractive("poetry", cmdArgs, workDir)
+}
+
+func (p *Poetry) Update(workDir string, packages []string) error {
+	args := []string{"update"}
+	args = append(args, packages...)
+	return runCommand("poetry", args, workDir)
 }
 
 func (p *Poetry) IsAvailable() bool {

@@ -35,6 +35,18 @@ func (b *Bun) Init(workDir string) error {
 	return runCommand("bun", []string{"init", "-y"}, workDir)
 }
 
+func (b *Bun) Run(workDir string, script string, args []string) error {
+	cmdArgs := []string{"run", script}
+	cmdArgs = append(cmdArgs, args...)
+	return runCommandInteractive("bun", cmdArgs, workDir)
+}
+
+func (b *Bun) Update(workDir string, packages []string) error {
+	args := []string{"update"}
+	args = append(args, packages...)
+	return runCommand("bun", args, workDir)
+}
+
 func (b *Bun) IsAvailable() bool {
 	_, err := exec.LookPath("bun")
 	return err == nil

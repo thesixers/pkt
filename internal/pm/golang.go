@@ -39,6 +39,40 @@ func (g *GoMod) Init(workDir string) error {
 	return runCommand("go", []string{"mod", "init", "example.com/project"}, workDir)
 }
 
+func (g *GoMod) Run(workDir string, script string, args []string) error {
+	switch script {
+	case "build":
+		return runCommandInteractive("go", []string{"build", "./..."}, workDir)
+	case "test":
+		cmdArgs := []string{"test", "./..."}
+		cmdArgs = append(cmdArgs, args...)
+		return runCommandInteractive("go", cmdArgs, workDir)
+	case "run":
+		cmdArgs := []string{"run", "."}
+		cmdArgs = append(cmdArgs, args...)
+		return runCommandInteractive("go", cmdArgs, workDir)
+	default:
+		// Try to run as a go file or command
+		cmdArgs := []string{"run", script}
+		cmdArgs = append(cmdArgs, args...)
+		return runCommandInteractive("go", cmdArgs, workDir)
+	}
+}
+
+func (g *GoMod) Update(workDir string, packages []string) error {
+	if len(packages) == 0 {
+		// Update all dependencies
+		return runCommand("go", []string{"get", "-u", "./..."}, workDir)
+	}
+	// Update specific packages
+	for _, pkg := range packages {
+		if err := runCommand("go", []string{"get", "-u", pkg}, workDir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (g *GoMod) IsAvailable() bool {
 	_, err := exec.LookPath("go")
 	return err == nil

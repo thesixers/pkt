@@ -202,13 +202,101 @@ func ParseCargoToml(projectPath string) (map[string]*db.Dependency, error) {
 	return deps, nil
 }
 
+// ParsePyproject parses Python pyproject.toml (PEP 621 format)
+func ParsePyproject(projectPath string) (map[string]*db.Dependency, error) {
+	pyprojectPath := filepath.Join(projectPath, "pyproject.toml")
+	deps := make(map[string]*db.Dependency)
+
+	data, err := os.ReadFile(pyprojectPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return deps, nil
+		}
+		return nil, err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	inDeps := false
+	inDevDeps := false
+
+	// Match dependency lines like: "requests>=2.28.0", "flask", etc.
+	depRe := regexp.MustCompile(`^\s*"([a-zA-Z0-9_-]+)([<>=!~\[\]]*[^"]*)"`)
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Detect [project.dependencies]
+		if trimmed == "dependencies = [" {
+			inDeps = true
+			inDevDeps = false
+			continue
+		}
+
+		// Detect dev dependencies (various formats)
+		if strings.Contains(trimmed, "dev") && strings.Contains(trimmed, "= [") {
+			inDeps = false
+			inDevDeps = true
+			continue
+		}
+
+		// End of array
+		if (inDeps || inDevDeps) && trimmed == "]" {
+			inDeps = false
+			inDevDeps = false
+			continue
+		}
+
+		if !inDeps && !inDevDeps {
+			continue
+		}
+
+		depType := "prod"
+		if inDevDeps {
+			depType = "dev"
+		}
+
+		if matches := depRe.FindStringSubmatch(line); len(matches) >= 2 {
+			name := matches[1]
+			version := ""
+			if len(matches) >= 3 {
+				version = matches[2]
+			}
+			deps[name] = &db.Dependency{
+				Name:    name,
+				Version: version,
+				DepType: depType,
+			}
+		}
+	}
+
+	return deps, nil
+}
+
+// ParsePythonDeps tries pyproject.toml first, then falls back to requirements.txt
+func ParsePythonDeps(projectPath string) (map[string]*db.Dependency, error) {
+	// Check for pyproject.toml first
+	pyprojectPath := filepath.Join(projectPath, "pyproject.toml")
+	if _, err := os.Stat(pyprojectPath); err == nil {
+		deps, err := ParsePyproject(projectPath)
+		if err != nil {
+			return nil, err
+		}
+		if len(deps) > 0 {
+			return deps, nil
+		}
+	}
+
+	// Fall back to requirements.txt
+	return ParseRequirementsTxt(projectPath)
+}
+
 // ParseDependencies parses dependencies based on language
 func ParseDependencies(projectPath, language string) (map[string]*db.Dependency, error) {
 	switch language {
 	case "javascript":
 		return ParsePackageJSON(projectPath)
 	case "python":
-		return ParseRequirementsTxt(projectPath)
+		return ParsePythonDeps(projectPath)
 	case "go":
 		return ParseGoMod(projectPath)
 	case "rust":

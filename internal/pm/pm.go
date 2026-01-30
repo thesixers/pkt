@@ -2,6 +2,7 @@ package pm
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -25,8 +26,22 @@ type PackageManager interface {
 	// Init initializes a new project
 	Init(workDir string) error
 
+	// Run runs a script or command
+	Run(workDir string, script string, args []string) error
+
+	// Update updates packages (empty slice = update all)
+	Update(workDir string, packages []string) error
+
 	// IsAvailable checks if this package manager is installed
 	IsAvailable() bool
+}
+
+// OutdatedDep represents an outdated dependency
+type OutdatedDep struct {
+	Name    string
+	Current string
+	Latest  string
+	DepType string
 }
 
 // Registry holds all available package managers by language
@@ -131,4 +146,14 @@ func runCommand(name string, args []string, workDir string) error {
 		return fmt.Errorf("command failed: %w\nOutput: %s", err, string(output))
 	}
 	return nil
+}
+
+// runCommandInteractive runs a command with stdout/stderr connected to terminal
+func runCommandInteractive(name string, args []string, workDir string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = workDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
 }
