@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/genesix/pkt/internal/config"
 	"github.com/genesix/pkt/internal/db"
 	"github.com/genesix/pkt/internal/lang"
@@ -57,11 +58,47 @@ Examples:
 		// Auto-detect project language
 		detectedLang, err := lang.Detect(absPath)
 		if err != nil {
-			return fmt.Errorf("could not detect project type in %s\nSupported: package.json (JS), pyproject.toml/requirements.txt (Python), go.mod (Go), Cargo.toml (Rust)", absPath)
+			// Detection failed, prompt user to select language
+			fmt.Println("⚠️  Could not auto-detect project type.")
+			fmt.Println("   No manifest file found (package.json, requirements.txt, go.mod, Cargo.toml)")
+			fmt.Println()
+			
+			langOptions := []string{
+				"js - JavaScript/Node.js",
+				"py - Python",
+				"go - Go",
+				"rs - Rust",
+			}
+			var selected string
+			prompt := &survey.Select{
+				Message: "Select project language:",
+				Options: langOptions,
+				Default: langOptions[0],
+			}
+			if err := survey.AskOne(prompt, &selected); err != nil {
+				return fmt.Errorf("cancelled: %w", err)
+			}
+			
+			// Extract language code from selection
+			var langCode string
+			for i := 0; i < len(selected); i++ {
+				if selected[i] == ' ' {
+					langCode = selected[:i]
+					break
+				}
+			}
+			
+			detectedLang, err = lang.Get(langCode)
+			if err != nil {
+				return err
+			}
 		}
 
-		// Get project name from directory name
-		projectName := filepath.Base(absPath)
+		// Get project name from directory name or flag
+		projectName := initName
+		if projectName == "" {
+			projectName = filepath.Base(absPath)
+		}
 
 		// Detect package manager from lockfiles
 		packageManager := detectedLang.DetectPackageManager(absPath)
@@ -98,8 +135,9 @@ Examples:
 		if !insideWorkspace {
 			fmt.Printf("📦 Project is outside pkt workspace, moving to %s...\n", projectsRoot)
 
-			// Get unique folder name
-			targetPath := filepath.Join(projectsRoot, filepath.Base(absPath))
+			// Use custom name if provided, otherwise use original directory name
+			targetDirName := projectName
+			targetPath := filepath.Join(projectsRoot, targetDirName)
 			targetPath, err = getUniqueFolder(targetPath)
 			if err != nil {
 				return fmt.Errorf("failed to find unique folder name: %w", err)
@@ -117,6 +155,19 @@ Examples:
 
 			finalPath = targetPath
 			fmt.Printf("✓ Moved to: %s\n", finalPath)
+		} else if initName != "" && filepath.Base(absPath) != initName {
+			// Project is inside workspace but needs renaming
+			targetPath := filepath.Join(filepath.Dir(absPath), initName)
+			if _, err := os.Stat(targetPath); err == nil {
+				return fmt.Errorf("cannot rename: directory %s already exists", targetPath)
+			}
+			
+			if err := os.Rename(absPath, targetPath); err != nil {
+				return fmt.Errorf("failed to rename project directory: %w", err)
+			}
+			
+			finalPath = targetPath
+			fmt.Printf("✓ Renamed to: %s\n", finalPath)
 		}
 
 		// Generate project ID
@@ -243,6 +294,9 @@ func copyFile(src, dst string) error {
 	return err
 }
 
+var initName string
+
 func init() {
+	initCmd.Flags().StringVarP(&initName, "name", "n", "", "Custom project name (default: directory name)")
 	rootCmd.AddCommand(initCmd)
 }
