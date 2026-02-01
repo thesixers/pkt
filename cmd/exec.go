@@ -45,9 +45,9 @@ Examples:
 
 		// For Python with pip, use venv's environment
 		if project.Language == "python" && project.PackageManager == "pip" {
-			venvPython := filepath.Join(project.Path, ".venv", "bin", "python")
+			venvPython := filepath.Join(project.Path, "venv", "bin", "python")
 			if runtime.GOOS == "windows" {
-				venvPython = filepath.Join(project.Path, ".venv", "Scripts", "python.exe")
+				venvPython = filepath.Join(project.Path, "venv", "Scripts", "python.exe")
 			}
 
 			// Check if venv exists
@@ -55,12 +55,12 @@ Examples:
 				// Use bash -c to run the command with venv activated
 				if runtime.GOOS == "windows" {
 					// On Windows, use cmd /c with venv activation
-					activateScript := filepath.Join(project.Path, ".venv", "Scripts", "activate.bat")
+					activateScript := filepath.Join(project.Path, "venv", "Scripts", "activate.bat")
 					fullCmd := fmt.Sprintf("%s && %s %s", activateScript, command, joinArgs(cmdArgs))
 					execCmd = exec.Command("cmd", "/c", fullCmd)
 				} else {
 					// On Unix, source the activate script
-					activateScript := filepath.Join(project.Path, ".venv", "bin", "activate")
+					activateScript := filepath.Join(project.Path, "venv", "bin", "activate")
 					fullCmd := fmt.Sprintf("source %s && %s %s", activateScript, command, joinArgs(cmdArgs))
 					execCmd = exec.Command("bash", "-c", fullCmd)
 				}

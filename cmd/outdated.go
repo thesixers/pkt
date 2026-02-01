@@ -97,7 +97,7 @@ func checkOutdatedPython(workDir, pm string) error {
 	switch pm {
 	case "pip":
 		// Use venv pip if available
-		venvPip := workDir + "/.venv/bin/pip"
+		venvPip := workDir + "/venv/bin/pip"
 		if _, err := os.Stat(venvPip); err == nil {
 			cmd = exec.Command(venvPip, "list", "--outdated", "--format=json")
 		} else {

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // UV implements PackageManager for uv (fast Python package manager)
@@ -75,7 +76,7 @@ func (p *Pip) Language() string {
 
 // venvPath returns the path to the venv directory
 func (p *Pip) venvPath(workDir string) string {
-	return filepath.Join(workDir, ".venv")
+	return filepath.Join(workDir, "venv")
 }
 
 // venvPip returns the pip executable path inside venv
@@ -105,13 +106,13 @@ func (p *Pip) ensureVenv(workDir string) error {
 
 	// Create venv using python -m venv
 	fmt.Println("Creating virtual environment...")
-	cmd := exec.Command("python3", "-m", "venv", ".venv")
+	cmd := exec.Command("python3", "-m", "venv", "venv")
 	cmd.Dir = workDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		// Try python instead of python3
-		cmd = exec.Command("python", "-m", "venv", ".venv")
+		cmd = exec.Command("python", "-m", "venv", "venv")
 		cmd.Dir = workDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -119,7 +120,7 @@ func (p *Pip) ensureVenv(workDir string) error {
 			return fmt.Errorf("failed to create venv: %w", err)
 		}
 	}
-	fmt.Println("✓ Created .venv/")
+	fmt.Println("✓ Created venv/")
 	return nil
 }
 
@@ -215,11 +216,85 @@ func (p *Pip) Run(workDir string, script string, args []string) error {
 		cmdArgs = append(cmdArgs, args...)
 		return runCommandInteractive(python, cmdArgs, workDir)
 	default:
+		// Check if it's a Python file that might need special handling
+		if strings.HasSuffix(script, ".py") {
+			filePath := filepath.Join(workDir, script)
+			
+			// Check for Streamlit apps
+			if isStreamlitApp(filePath) {
+				fmt.Println("🎈 Detected Streamlit app, running with streamlit...")
+				cmdArgs := []string{"-m", "streamlit", "run", script}
+				cmdArgs = append(cmdArgs, args...)
+				return runCommandInteractive(python, cmdArgs, workDir)
+			}
+			
+			// Check for ASGI apps (FastAPI, Starlette, Litestar)
+			if isASGIApp(filePath) {
+				// Run with uvicorn for ASGI apps
+				moduleName := strings.TrimSuffix(script, ".py")
+				fmt.Println("🚀 Detected ASGI app, running with uvicorn...")
+				cmdArgs := []string{"-m", "uvicorn", moduleName + ":app", "--reload"}
+				cmdArgs = append(cmdArgs, args...)
+				return runCommandInteractive(python, cmdArgs, workDir)
+			}
+		}
 		// Try to run as a Python file
 		cmdArgs := []string{script}
 		cmdArgs = append(cmdArgs, args...)
 		return runCommandInteractive(python, cmdArgs, workDir)
 	}
+}
+
+// isStreamlitApp checks if a Python file contains Streamlit imports
+func isStreamlitApp(filePath string) bool {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return false
+	}
+	
+	fileContent := string(content)
+	streamlitPatterns := []string{
+		"import streamlit",
+		"from streamlit import",
+	}
+	
+	for _, pattern := range streamlitPatterns {
+		if strings.Contains(fileContent, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// isASGIApp checks if a Python file contains ASGI framework imports (FastAPI, Starlette, Litestar)
+func isASGIApp(filePath string) bool {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return false
+	}
+	
+	fileContent := string(content)
+	// Check for common ASGI frameworks
+	asgiPatterns := []string{
+		"from fastapi import",
+		"from fastapi.applications import",
+		"import fastapi",
+		"FastAPI()",
+		"from starlette.applications import",
+		"from starlette import",
+		"import starlette",
+		"Starlette()",
+		"from litestar import",
+		"import litestar",
+		"Litestar(",
+	}
+	
+	for _, pattern := range asgiPatterns {
+		if strings.Contains(fileContent, pattern) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Pip) Update(workDir string, packages []string) error {
