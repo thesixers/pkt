@@ -186,14 +186,36 @@ pkt compiles to a single binary with no external dependencies:
 
 ### Configuration
 
-| Command                             | Description                                                                  |
-| ----------------------------------- | ---------------------------------------------------------------------------- |
-| `pkt config`                        | Show current configuration                                                   |
-| `pkt config editor <cmd>`           | Change editor (e.g., code, cursor)                                           |
-| `pkt config pm <pm>`                | Change default package manager                                               |
-| `pkt config set-ai <prov> <key>`    | Map standard API keys to a specific AI tool engine (Groq, Gemini, OpenAI)    |
-| `pkt config set-model <prov> <mod>` | Configure precise AI models selectively via provider (e.g. gpt-4o)           |
-| `pkt config ai <prov>`              | Hot-swap active default AI engines actively routing standard inference calls |
+| Command                                    | Description                                                      |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| `pkt config`                               | Show current config and full provider registry                   |
+| `pkt config editor <cmd>`                  | Change editor (e.g., code, cursor)                               |
+| `pkt config pm <pm>`                       | Change default package manager                                   |
+| `pkt config ai <provider>`                 | Switch active AI provider                                        |
+| `pkt config set-ai <provider> <api_key>`   | Register a cloud provider with an API key (Groq, Gemini, OpenAI) |
+| `pkt config set-ai <provider>`             | Register a local provider with no key (ollama, local)            |
+| `pkt config set-ai <provider> --url <url>` | Register a self-hosted provider at a custom URL                  |
+| `pkt config set-model <provider> <model>`  | Pin a specific model for any provider                            |
+
+**Examples:**
+
+```bash
+# Cloud providers
+pkt config set-ai groq   sk-xxxx
+pkt config set-ai gemini AIxxxx
+
+# Local Ollama (no key needed)
+pkt config set-ai ollama
+pkt config ai ollama
+
+# Self-hosted at a custom URL
+pkt config set-ai local --url http://localhost:1234
+pkt config set-model local phi3
+pkt config ai local
+
+# Pin a model
+pkt config set-model groq llama-3.3-70b-versatile
+```
 
 ## Python Virtual Environment
 
