@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -62,7 +63,7 @@ Examples:
 			fmt.Println("⚠️  Could not auto-detect project type.")
 			fmt.Println("   No manifest file found (package.json, requirements.txt, go.mod, Cargo.toml)")
 			fmt.Println()
-			
+
 			langOptions := []string{
 				"js - JavaScript/Node.js",
 				"py - Python",
@@ -78,7 +79,7 @@ Examples:
 			if err := survey.AskOne(prompt, &selected); err != nil {
 				return fmt.Errorf("cancelled: %w", err)
 			}
-			
+
 			// Extract language code from selection
 			var langCode string
 			for i := 0; i < len(selected); i++ {
@@ -87,7 +88,7 @@ Examples:
 					break
 				}
 			}
-			
+
 			detectedLang, err = lang.Get(langCode)
 			if err != nil {
 				return err
@@ -161,11 +162,11 @@ Examples:
 			if _, err := os.Stat(targetPath); err == nil {
 				return fmt.Errorf("cannot rename: directory %s already exists", targetPath)
 			}
-			
+
 			if err := os.Rename(absPath, targetPath); err != nil {
 				return fmt.Errorf("failed to rename project directory: %w", err)
 			}
-			
+
 			finalPath = targetPath
 			fmt.Printf("✓ Renamed to: %s\n", finalPath)
 		}
@@ -200,6 +201,15 @@ Examples:
 		fmt.Printf("  Package Manager: %s\n", project.PackageManager)
 		if depCount > 0 {
 			fmt.Printf("  Dependencies: %d synced\n", depCount)
+		}
+
+		if initOpen && cfg.EditorCommand != "" {
+			editorCmd := exec.Command(cfg.EditorCommand, project.Path)
+			if err := editorCmd.Start(); err != nil {
+				fmt.Printf("⚠️  Warning: failed to open editor: %v\n", err)
+			} else {
+				fmt.Printf("✓ Opening %s in %s\n", projectName, cfg.EditorCommand)
+			}
 		}
 
 		return nil
@@ -294,9 +304,13 @@ func copyFile(src, dst string) error {
 	return err
 }
 
-var initName string
+var (
+	initName string
+	initOpen bool
+)
 
 func init() {
 	initCmd.Flags().StringVarP(&initName, "name", "n", "", "Custom project name (default: directory name)")
+	initCmd.Flags().BoolVarP(&initOpen, "open", "o", false, "Open project in editor after initialization")
 	rootCmd.AddCommand(initCmd)
 }
