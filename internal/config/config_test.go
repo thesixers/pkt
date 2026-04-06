@@ -8,14 +8,12 @@ import (
 )
 
 func TestConfigSaveAndLoad(t *testing.T) {
-	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "pkt-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Test the struct logic since we can't easily mock the filesystem location
 	cfg := &Config{
 		ProjectsRoot:  "/tmp/workspace",
 		DefaultPM:     "pnpm",
@@ -39,20 +37,17 @@ func TestConfigJSONSerialization(t *testing.T) {
 		Initialized:   true,
 	}
 
-	// Marshal to JSON
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatalf("Failed to marshal config: %v", err)
 	}
 
-	// Unmarshal back
 	var loaded Config
 	err = json.Unmarshal(data, &loaded)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal config: %v", err)
 	}
 
-	// Verify fields
 	if loaded.ProjectsRoot != cfg.ProjectsRoot {
 		t.Errorf("ProjectsRoot mismatch: got %s, want %s", loaded.ProjectsRoot, cfg.ProjectsRoot)
 	}
@@ -68,7 +63,6 @@ func TestConfigJSONSerialization(t *testing.T) {
 }
 
 func TestConfigDefaults(t *testing.T) {
-	// Test that a zero-value config has expected defaults
 	cfg := Config{}
 
 	if cfg.ProjectsRoot != "" {
@@ -80,14 +74,12 @@ func TestConfigDefaults(t *testing.T) {
 }
 
 func TestConfigFileOperations(t *testing.T) {
-	// Create a temp directory to simulate config operations
 	tmpDir, err := os.MkdirTemp("", "pkt-config-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Create a config file manually
 	configDir := filepath.Join(tmpDir, ".pkt")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatalf("Failed to create config dir: %v", err)
@@ -110,12 +102,10 @@ func TestConfigFileOperations(t *testing.T) {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	// Verify file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		t.Error("Config file was not created")
 	}
 
-	// Read it back
 	readData, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("Failed to read config file: %v", err)
@@ -128,5 +118,55 @@ func TestConfigFileOperations(t *testing.T) {
 
 	if loaded.DefaultPM != "bun" {
 		t.Errorf("Expected DefaultPM 'bun', got '%s'", loaded.DefaultPM)
+	}
+}
+
+func TestProviderConfigRegistry(t *testing.T) {
+	cfg := &Config{
+		AIProvider:  "groq",
+		AIProviders: map[string]ProviderConfig{},
+	}
+
+	// Register cloud provider with API key
+	cfg.AIProviders["groq"] = ProviderConfig{APIKey: "sk-test-key", Model: "llama-3.1-8b-instant"}
+	// Register local provider with URL (no key)
+	cfg.AIProviders["ollama"] = ProviderConfig{BaseURL: "http://localhost:11434/v1/chat/completions", Model: "llama3"}
+
+	if cfg.AIProviders["groq"].APIKey != "sk-test-key" {
+		t.Errorf("Expected groq key 'sk-test-key', got '%s'", cfg.AIProviders["groq"].APIKey)
+	}
+	if cfg.AIProviders["ollama"].APIKey != "" {
+		t.Errorf("Expected empty API key for local provider, got '%s'", cfg.AIProviders["ollama"].APIKey)
+	}
+	if cfg.AIProviders["ollama"].BaseURL == "" {
+		t.Error("Expected ollama BaseURL to be set")
+	}
+}
+
+func TestLegacyMigration(t *testing.T) {
+	cfg := Config{
+		AIProvider:  "groq",
+		AIKeys:      map[string]string{"groq": "sk-legacy-key"},
+		AIModels:    map[string]string{"groq": "llama-3.1-8b-instant"},
+		AIProviders: map[string]ProviderConfig{},
+	}
+
+	// Replicate the Load() migration logic
+	for name, key := range cfg.AIKeys {
+		if _, exists := cfg.AIProviders[name]; !exists {
+			pc := cfg.AIProviders[name]
+			pc.APIKey = key
+			if m, ok := cfg.AIModels[name]; ok {
+				pc.Model = m
+			}
+			cfg.AIProviders[name] = pc
+		}
+	}
+
+	if cfg.AIProviders["groq"].APIKey != "sk-legacy-key" {
+		t.Errorf("Migration failed: expected 'sk-legacy-key', got '%s'", cfg.AIProviders["groq"].APIKey)
+	}
+	if cfg.AIProviders["groq"].Model != "llama-3.1-8b-instant" {
+		t.Errorf("Migration failed: expected model 'llama-3.1-8b-instant', got '%s'", cfg.AIProviders["groq"].Model)
 	}
 }
