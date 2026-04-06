@@ -61,6 +61,21 @@ type ChatCompletionResponse struct {
 	} `json:"choices"`
 }
 
+// builtinDefaults holds the default base URL and model for known providers.
+var builtinDefaults = map[string][2]string{
+	"openai": {"https://api.openai.com/v1/chat/completions", "gpt-4o-mini"},
+	"groq":   {"https://api.groq.com/openai/v1/chat/completions", "llama-3.1-8b-instant"},
+	"gemini": {"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "gemini-1.5-flash"},
+	"ollama": {"http://localhost:11434/v1/chat/completions", "llama3"},
+	"local":  {"http://localhost:1234/v1/chat/completions", "local-model"},
+}
+
+// localProviders are providers that do not require an API key.
+var localProviders = map[string]bool{
+	"ollama": true,
+	"local":  true,
+}
+
 func AskAI(systemPrompt, userPrompt, preferredProvider string) (string, error) {
 	messages := []Message{
 		{Role: "system", Content: systemPrompt},
@@ -79,51 +94,47 @@ func SendMessages(messages []Message, preferredProvider string, tools []Tool) (*
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	provider := cfg.AIProvider
+	providerName := cfg.AIProvider
 	if preferredProvider != "" {
-		provider = strings.ToLower(preferredProvider)
+		providerName = strings.ToLower(preferredProvider)
+	}
+	if providerName == "" {
+		return nil, fmt.Errorf("no AI provider configured. Run 'pkt config ai <provider>'")
 	}
 
-	if provider == "" {
-		return nil, fmt.Errorf("no AI provider configured. Run 'pkt config set-ai <provider> <key>'")
+	// Resolve the provider config from the registry
+	pc := cfg.AIProviders[providerName]
+
+	// Determine base URL and default model
+	defaults, known := builtinDefaults[providerName]
+	if !known && pc.BaseURL == "" {
+		return nil, fmt.Errorf("unknown provider '%s'. Use openai, groq, gemini, ollama, local, or register a custom one", providerName)
 	}
 
-	apiKey := cfg.AIKeys[provider]
-	if apiKey == "" {
-		if cfg.AIKey != "" && cfg.AIProvider == provider {
-			apiKey = cfg.AIKey
-			cfg.AIKeys[provider] = apiKey
-			_ = config.Save(cfg)
-		} else {
-			return nil, fmt.Errorf("API Key not set for provider '%s'. Run 'pkt config set-ai %s <key>'", provider, provider)
-		}
+	baseURL := pc.BaseURL
+	if baseURL == "" {
+		baseURL = defaults[0]
 	}
 
-	var baseURL, defaultModel string
-	switch provider {
-	case "groq":
-		baseURL = "https://api.groq.com/openai/v1/chat/completions"
-		defaultModel = "llama-3.1-8b-instant"
-	case "gemini":
-		baseURL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-		defaultModel = "gemini-1.5-flash"
-	case "openai":
-		baseURL = "https://api.openai.com/v1/chat/completions"
-		defaultModel = "gpt-4o-mini"
-	default:
-		return nil, fmt.Errorf("unsupported provider '%s'. Use openai, gemini, or groq", provider)
+	model := pc.Model
+	if model == "" && known {
+		model = defaults[1]
 	}
-
-	model := cfg.AIModels[provider]
 	if model == "" {
-		model = defaultModel
+		model = "default"
+	}
+
+	// Require API key only for non-local providers
+	apiKey := pc.APIKey
+	if apiKey == "" && !localProviders[providerName] {
+		return nil, fmt.Errorf("no API key set for '%s'. Run: pkt config set-ai %s <your-api-key>", providerName, providerName)
 	}
 
 	reqBody := ChatCompletionRequest{
 		Model:       model,
 		Messages:    messages,
 		Tools:       tools,
-		Temperature: 0.1, // Explicit limit natively caching strictly stable schemas
+		Temperature: 0.1,
 	}
 
 	jsonBody, err := json.Marshal(reqBody)
@@ -137,7 +148,9 @@ func SendMessages(messages []Message, preferredProvider string, tools []Tool) (*
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -150,7 +163,7 @@ func SendMessages(messages []Message, preferredProvider string, tools []Tool) (*
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		errStr := string(bodyBytes)
 
-		// Self-heal Llama's Groq XML Tool-Calling hallucination natively
+		// Self-heal Llama/Groq XML tool-calling hallucination
 		if strings.Contains(errStr, "failed_generation") {
 			type groqError struct {
 				Error struct {
@@ -159,29 +172,20 @@ func SendMessages(messages []Message, preferredProvider string, tools []Tool) (*
 			}
 			var ge groqError
 			if json.Unmarshal(bodyBytes, &ge) == nil && ge.Error.FailedGeneration != "" {
-				fg := ge.Error.FailedGeneration
-
 				re := regexp.MustCompile(`<function=([a-zA-Z_0-9_]+)[^\{]*(\{.*\})`)
-				matches := re.FindStringSubmatch(fg)
-
+				matches := re.FindStringSubmatch(ge.Error.FailedGeneration)
 				if len(matches) == 3 {
-					funcName := matches[1]
-					funcArgs := strings.TrimSpace(matches[2])
-
-					syntheticMessage := Message{
+					return &Message{
 						Role: "assistant",
-						ToolCalls: []ToolCall{
-							{
-								ID:   "call_synthetic_groq_" + funcName,
-								Type: "function",
-								Function: CallFunction{
-									Name:      funcName,
-									Arguments: funcArgs,
-								},
+						ToolCalls: []ToolCall{{
+							ID:   "call_synthetic_groq_" + matches[1],
+							Type: "function",
+							Function: CallFunction{
+								Name:      matches[1],
+								Arguments: strings.TrimSpace(matches[2]),
 							},
-						},
-					}
-					return &syntheticMessage, nil
+						}},
+					}, nil
 				}
 			}
 		}
