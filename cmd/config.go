@@ -37,6 +37,12 @@ Examples:
 			fmt.Printf("  projects_root: %s\n", cfg.ProjectsRoot)
 			fmt.Printf("  editor:        %s\n", cfg.EditorCommand)
 			fmt.Printf("  pm:            %s\n", cfg.DefaultPM)
+			if cfg.AIProvider != "" {
+				fmt.Printf("  ai (default):  %s\n", cfg.AIProvider)
+			}
+			for p, m := range cfg.AIModels {
+				fmt.Printf("  %s model:    %s\n", p, m)
+			}
 			fmt.Printf("\nConfig file: ~/.pkt/config.json\n")
 			return nil
 		}
@@ -51,8 +57,14 @@ Examples:
 				fmt.Printf("pm: %s\n", cfg.DefaultPM)
 			case "projects_root":
 				fmt.Printf("projects_root: %s\n", cfg.ProjectsRoot)
+			case "ai":
+				provider := cfg.AIProvider
+				if provider == "" {
+					provider = "None"
+				}
+				fmt.Printf("ai: %s\n", provider)
 			default:
-				return fmt.Errorf("unknown config key: %s\nAvailable keys: editor, pm, projects_root", key)
+				return fmt.Errorf("unknown config key: %s\nAvailable keys: editor, pm, projects_root, ai", key)
 			}
 			return nil
 		}
@@ -92,14 +104,107 @@ Examples:
 		case "projects_root":
 			return fmt.Errorf("projects_root cannot be changed after setup\nRecreate config with 'pkt start' if needed")
 
+		case "ai":
+			provider := value
+			switch provider {
+			case "openai", "gemini", "groq":
+				// valid
+			default:
+				return fmt.Errorf("unsupported AI provider: %s\nSupported: openai, gemini, groq", provider)
+			}
+			if cfg.AIKeys == nil || cfg.AIKeys[provider] == "" {
+				fmt.Printf("⚠️  Warning: API Key for '%s' is not set yet. Run 'pkt config set-ai %s <key>' to add it.\n", provider, provider)
+			}
+			cfg.AIProvider = provider
+			if err := config.Save(cfg); err != nil {
+				return fmt.Errorf("failed to save config: %w", err)
+			}
+			fmt.Printf("✓ Default AI provider set to: %s\n", value)
+
 		default:
-			return fmt.Errorf("unknown config key: %s\nAvailable keys: editor, pm", key)
+			return fmt.Errorf("unknown config key: %s\nAvailable keys: editor, pm, ai", key)
 		}
 
 		return nil
 	},
 }
 
+var configSetAICmd = &cobra.Command{
+	Use:   "set-ai <provider> <api_key>",
+	Short: "Configure the AI provider and API key",
+	Long:  "Supported providers: openai, gemini, groq",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		provider := args[0]
+		key := args[1]
+
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+
+		switch provider {
+		case "openai", "gemini", "groq":
+			// valid
+		default:
+			return fmt.Errorf("unsupported provider '%s'. Use openai, gemini, or groq", provider)
+		}
+
+		if cfg.AIKeys == nil {
+			cfg.AIKeys = make(map[string]string)
+		}
+		cfg.AIKeys[provider] = key
+
+		if cfg.AIProvider == "" {
+			cfg.AIProvider = provider
+		}
+
+		if err := config.Save(cfg); err != nil {
+			return err
+		}
+
+		fmt.Printf("✓ AI Configuration updated (Provider: %s)\n", provider)
+		return nil
+	},
+}
+
+var configSetModelCmd = &cobra.Command{
+	Use:   "set-model <provider> <model_name>",
+	Short: "Configure the specific AI model for a provider",
+	Long:  "Supported providers: openai, gemini, groq\nExample models:\n  groq   (llama-3.1-8b-instant)\n  gemini (gemini-1.5-pro)\n  openai (gpt-4o)",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		provider := args[0]
+		model := args[1]
+
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+
+		switch provider {
+		case "openai", "gemini", "groq":
+			// valid
+		default:
+			return fmt.Errorf("unsupported provider '%s'. Use openai, gemini, or groq", provider)
+		}
+
+		if cfg.AIModels == nil {
+			cfg.AIModels = make(map[string]string)
+		}
+		cfg.AIModels[provider] = model
+
+		if err := config.Save(cfg); err != nil {
+			return err
+		}
+
+		fmt.Printf("✓ AI Model updated (Provider: %s, Model: %s)\n", provider, model)
+		return nil
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(configCmd)
+	configCmd.AddCommand(configSetAICmd)
+	configCmd.AddCommand(configSetModelCmd)
 }

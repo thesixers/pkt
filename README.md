@@ -6,12 +6,14 @@ A cross-platform project manager and dependency tracker for **JavaScript, Python
 
 ## Features
 
+- 🤖 **Autonomous AI Coding Agent** — Fully integrated conversational terminal agent (`pkt chat`) running native filesystem execution tools natively synced locally to Groq, Gemini, and OpenAI!
 - 🌐 **Multi-language support** — JavaScript, Python, Go, and Rust
 - 🗂️ **Centralized workspace** — All projects live in one configurable folder
 - 🔄 **Package manager agnostic** — Works with npm, pnpm, bun, pip, poetry, uv, cargo, and go mod
 - 📦 **Dependency tracking** — Database-backed tracking of all project dependencies
 - 🆔 **Unique project IDs** — No more name conflicts, reference projects by ID
-- 🚀 **Batch operations** — Add multiple packages in a single command
+- 🚀 **Batch operations** — Add multiple packages in a single command (plus natural-language `pkt add --ai` querying)
+- 🧹 **Deep System Maintenance** — Rapidly detect and prune `.venv`/`node_modules` caches recursively (`pkt clean`) and trace Global Git logic (`pkt status`)
 - ⚡ **Zero setup** — Embedded SQLite database, no external dependencies
 - 🐍 **Python venv** — Automatic virtual environment creation and management
 
@@ -112,6 +114,16 @@ pkt compiles to a single binary with no external dependencies:
 
 ## Commands
 
+### 🤖 Intelligence & AI Agent (NEW)
+
+| Command               | Description                                                                     |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `pkt chat`            | Launch a highly-capable Autonomous AI Coding Agent REPL directly in your shell! |
+| `pkt ask <query>`     | AI-assisted code query using your active local repository environment           |
+| `pkt generate <desc>` | Leverage AI to accurately scaffold specific boilerplate scripts locally         |
+| `pkt debug [log]`     | Pass error traces to deeply diagnose logic natively (supports `stdin` piping)   |
+| `pkt add --ai <desc>` | Install local packages purely through natural-language descriptions!            |
+
 ### Setup
 
 | Command     | Description                               |
@@ -120,18 +132,21 @@ pkt compiles to a single binary with no external dependencies:
 
 ### Project Management
 
-| Command                       | Description                                         |
-| ----------------------------- | --------------------------------------------------- |
-| `pkt create <name>`           | Create a new project in workspace                   |
-| `pkt create <name> -l <lang>` | Create project with specified language              |
-| `pkt init [path]`             | Initialize existing project (auto-detects language) |
-| `pkt list`                    | List all tracked projects                           |
-| `pkt list -l <lang>`          | List projects filtered by language                  |
-| `pkt clone <url>`             | Clone repo and auto-track ⭐ NEW                    |
-| `pkt open <project>`          | Open project in configured editor                   |
-| `pkt delete <project>`        | Delete project from filesystem and database         |
-| `pkt rename <project>`        | Rename a tracked project                            |
-| `pkt search <query>`          | Search through tracked projects                     |
+| Command                       | Description                                           |
+| ----------------------------- | ----------------------------------------------------- |
+| `pkt create <name>`           | Create a new project in workspace                     |
+| `pkt create <name> -l <lang>` | Create project with specified language                |
+| `pkt init [path]`             | Initialize existing project (auto-detects language)   |
+| `pkt list`                    | List all tracked projects                             |
+| `pkt list -l <lang>`          | List projects filtered by language                    |
+| `pkt clone <url>`             | Clone repo and auto-track ⭐ NEW                      |
+| `pkt open <project>`          | Open project in configured editor                     |
+| `pkt delete <project>`        | Delete project from filesystem and database           |
+| `pkt rename <project>`        | Rename a tracked project                              |
+| `pkt search <query>`          | Search through tracked projects                       |
+| `pkt stats`                   | Show footprint analytics covering your root domains   |
+| `pkt status`                  | Display dynamic git uncommitted states deeply         |
+| `pkt clean`                   | Prune localized heavy `.venv` / `node_modules` caches |
 
 ### Dependency Management
 
@@ -171,11 +186,14 @@ pkt compiles to a single binary with no external dependencies:
 
 ### Configuration
 
-| Command                   | Description                        |
-| ------------------------- | ---------------------------------- |
-| `pkt config`              | Show current configuration         |
-| `pkt config editor <cmd>` | Change editor (e.g., code, cursor) |
-| `pkt config pm <pm>`      | Change default package manager     |
+| Command                             | Description                                                                  |
+| ----------------------------------- | ---------------------------------------------------------------------------- |
+| `pkt config`                        | Show current configuration                                                   |
+| `pkt config editor <cmd>`           | Change editor (e.g., code, cursor)                                           |
+| `pkt config pm <pm>`                | Change default package manager                                               |
+| `pkt config set-ai <prov> <key>`    | Map standard API keys to a specific AI tool engine (Groq, Gemini, OpenAI)    |
+| `pkt config set-model <prov> <mod>` | Configure precise AI models selectively via provider (e.g. gpt-4o)           |
+| `pkt config ai <prov>`              | Hot-swap active default AI engines actively routing standard inference calls |
 
 ## Python Virtual Environment
 
