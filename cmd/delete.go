@@ -10,24 +10,30 @@ import (
 )
 
 var deleteCmd = &cobra.Command{
-	Use:   "delete <project | id>",
-	Short: "Delete a project",
-	Long: `Delete a project folder and remove it from the database.
+	Use:   "delete <project | id>...",
+	Short: "Delete one or more projects",
+	Long: `Delete one or more project folders and remove them from the database.
 This action cannot be undone!`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		input := args[0]
-
-		// Resolve project
-		project, err := utils.ResolveProject(input)
-		if err != nil {
-			return err
+		var projectsToDel []*db.Project
+		for _, input := range args {
+			project, err := utils.ResolveProject(input)
+			if err != nil {
+				return fmt.Errorf("failed to resolve project '%s': %w", input, err)
+			}
+			projectsToDel = append(projectsToDel, project)
 		}
 
 		// Confirm deletion
 		var confirm bool
+		msg := fmt.Sprintf("Delete project '%s' and all its files?", projectsToDel[0].Name)
+		if len(projectsToDel) > 1 {
+			msg = fmt.Sprintf("Delete %d projects and all their files?", len(projectsToDel))
+		}
+
 		prompt := &survey.Confirm{
-			Message: fmt.Sprintf("Delete project '%s' and all its files?", project.Name),
+			Message: msg,
 			Default: false,
 		}
 		if err := survey.AskOne(prompt, &confirm); err != nil {
@@ -39,17 +45,16 @@ This action cannot be undone!`,
 			return nil
 		}
 
-		// Delete from filesystem
-		if err := utils.DeleteProjectDir(project.Path); err != nil {
-			return fmt.Errorf("failed to delete project directory: %w", err)
+		// Delete from filesystem and database
+		for _, project := range projectsToDel {
+			if err := utils.DeleteProjectDir(project.Path); err != nil {
+				fmt.Printf("⚠️  Warning: failed to delete project directory %s: %v\n", project.Path, err)
+			}
+			if err := db.DeleteProject(project.ID); err != nil {
+				fmt.Printf("⚠️  Warning: failed to delete from database %s: %v\n", project.ID, err)
+			}
+			fmt.Printf("✓ Deleted project: %s\n", project.Name)
 		}
-
-		// Delete from database
-		if err := db.DeleteProject(project.ID); err != nil {
-			return fmt.Errorf("failed to delete from database: %w", err)
-		}
-
-		fmt.Printf("✓ Deleted project: %s\n", project.Name)
 
 		return nil
 	},
