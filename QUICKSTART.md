@@ -4,235 +4,177 @@
 
 Before using pkt, ensure you have:
 
-1. **PostgreSQL** installed and running
-2. At least one package manager installed: **pnpm**, **npm**, or **bun**
-3. The pkt binary built (see below)
+1. At least one language runtime installed (Node.js, Python, Go, or Rust)
+2. The pkt binary built or downloaded from [Releases](https://github.com/thesixers/pkt/releases)
 
 ---
 
 ## Building pkt
 
 ```bash
-cd /home/genesix/Documents/Workspace/pkt
-
-# Build the binary
-make build
-
+git clone https://github.com/thesixers/pkt.git
+cd pkt
+make build        # creates bin/pkt
 # Or install system-wide
-make install
+make install      # installs to /usr/local/bin
 ```
-
-This creates an executable at `bin/pkt` (or installs to `/usr/local/bin`).
 
 ---
 
 ## First-Time Setup
 
-Run this command first:
-
 ```bash
-./bin/pkt start
+pkt start
 ```
 
 You'll be prompted for:
 
 - **Projects root folder** (default: `~/Documents/workspace`)
 - **Default package manager** (pnpm, npm, or bun)
-- **Editor command** (e.g., `code`, `vim`)
+- **Editor command** (e.g., `code`, `vim`, `cursor`)
 
-This creates:
-
-- Config file: `~/.pkt/config.json`
-- PostgreSQL database: `pkt_db`
+This creates `~/.pkt/config.json` and an embedded SQLite database.
 
 ---
 
 ## Usage Examples
 
-### Create a New Project
+### Create and manage projects
 
 ```bash
-./bin/pkt create my-awesome-app
+pkt create my-app           # Create new JS project (prompts for language)
+pkt create my-api -l python # Create with a specific language
+pkt list                    # List all tracked projects
+pkt list -a                 # Include size, ID, and package manager
+pkt open my-app             # Open in configured editor
+pkt delete my-app           # Delete project + database record
+pkt search react            # Search through project names
+pkt rename my-app new-name  # Rename a tracked project
 ```
 
-Creates folder and tracks it with a unique ID.
-
-### List All Projects
+### Clone and track repos
 
 ```bash
-./bin/pkt list
+pkt clone https://github.com/user/repo   # Clone and auto-track
 ```
 
-Shows all tracked projects with their IDs, package managers, and paths.
-
-### Open Project in Editor
+### Dependencies
 
 ```bash
-# By name
-./bin/pkt open my-awesome-app
-
-# By ID
-./bin/pkt open 01HJ9KJQ8D...
-
-# Current directory
-cd ~/Documents/workspace/my-awesome-app
-../../pkt open .
+cd my-app
+pkt add axios react          # Add production dependencies
+pkt add -D typescript        # Add dev dependency
+pkt remove axios             # Remove a dependency
+pkt install                  # Install all dependencies
+pkt update                   # Update all dependencies
+pkt outdated                 # Check for outdated packages
+pkt deps                     # List project dependencies
 ```
 
-### Add Dependencies
+### Run scripts
 
 ```bash
-cd ~/Documents/workspace/my-awesome-app
-
-# Production dependency
-../../pkt add axios
-
-# Dev dependency
-../../pkt add -D typescript
+pkt run dev          # npm/pnpm run dev, or go run .
+pkt run test         # run tests for any language
+pkt run build        # build for any language
+pkt exec my-app ls   # run a command in another project's context
 ```
 
-### List Dependencies
+---
+
+## AI Commands
+
+### Set up an AI provider first
 
 ```bash
-# From inside project folder
-../../pkt deps
+# Cloud providers (require API key)
+pkt config set-ai groq   sk-xxxx
+pkt config set-ai gemini AIxxxx
+pkt config set-ai openai sk-xxxx
 
-# Or from anywhere
-./bin/pkt deps my-awesome-app
+# Local Ollama (no key needed)
+pkt config set-ai ollama
+pkt config ai ollama
+
+# Self-hosted at a custom URL
+pkt config set-ai myserver --url http://localhost:8080
+pkt config set-model myserver phi3
+pkt config ai myserver
 ```
 
-### Remove Dependencies
+### Use AI features
 
 ```bash
-cd ~/Documents/workspace/my-awesome-app
-../../pkt remove axios
+pkt ask "how do I add authentication to this project?"
+pkt generate "REST API endpoint for user login"
+pkt debug error.log           # or: cat error.log | pkt debug
+pkt add --ai "I need a library for sending emails"
+pkt chat                      # Launch autonomous agent REPL
 ```
-
-### Change Package Manager
-
-```bash
-# Switch to npm
-./bin/pkt pm set npm my-awesome-app
-
-# Or from inside project
-cd ~/Documents/workspace/my-awesome-app
-../../pkt pm set bun .
-```
-
-This automatically rewrites package.json scripts to use the new PM.
-
-### Delete Project
-
-```bash
-./bin/pkt delete my-awesome-app
-```
-
-Prompts for confirmation before deleting folder and database record.
 
 ---
 
 ## Configuration
 
-### Database Connection
-
-Default connection: `localhost:5432` as user `postgres` to database `pkt_db`.
-
-Override with environment variables:
-
 ```bash
-export PKT_DB_HOST=localhost
-export PKT_DB_PORT=5432
-export PKT_DB_USER=postgres
-export PKT_DB_PASSWORD=yourpassword  # optional
-export PKT_DB_NAME=pkt_db
+pkt config                          # Show all config + provider registry
+pkt config editor cursor            # Change editor
+pkt config pm npm                   # Change default package manager
+pkt config ai groq                  # Switch active AI provider
+pkt config set-model groq llama-3.3-70b-versatile   # Pin a model
 ```
 
-### Config File Location
-
-`~/.pkt/config.json`
-
-Example:
-
-```json
-{
-  "projects_root": "/home/genesix/Documents/workspace",
-  "default_pm": "pnpm",
-  "editor_command": "code"
-}
-```
+Config file: `~/.pkt/config.json`
 
 ---
 
 ## All Commands
 
 ```
-pkt start                           # Initialize pkt
-pkt create <name>                   # Create new project
-pkt list                            # List all projects
-pkt open <project|id|.>             # Open in editor
-pkt delete <project|id>             # Delete project
-pkt add <package> [-D]              # Add dependency
-pkt remove <package>                # Remove dependency
-pkt deps [project|id|.]             # List dependencies
-pkt pm set <pm> <project|id|.>      # Change package manager
+pkt start              Initialize pkt
+pkt create <name>      Create new project
+pkt init [path]        Track existing project
+pkt list               List all tracked projects
+pkt open <project>     Open in editor
+pkt delete <project>   Delete project
+pkt clone <url>        Clone and track repo
+pkt rename <project>   Rename a project
+pkt search <query>     Search projects
+pkt stats              Show workspace statistics
+pkt status             Show git status for all projects
+pkt clean              Prune node_modules / .venv caches
+
+pkt add <pkg>          Add dependency
+pkt remove <pkg>       Remove dependency
+pkt install            Install all dependencies
+pkt update             Update dependencies
+pkt outdated           Check for outdated packages
+pkt deps               List dependencies
+
+pkt run <script>       Run a script
+pkt exec <proj> <cmd>  Run command in another project
+
+pkt ask <question>     Ask AI about your project
+pkt generate <desc>    Generate code with AI
+pkt debug [file]       Debug errors with AI
+pkt chat               Launch autonomous AI agent
+
+pkt config             View/update configuration
+pkt pm set <pm> <proj> Change package manager
 ```
-
-Use `--help` with any command for details.
-
----
-
-## Tips
-
-1. **Duplicate Names**: If multiple projects have the same name, pkt prompts you to select which one.
-
-2. **Current Directory**: Use `.` to reference the project in your current folder:
-
-   ```bash
-   pkt open .
-   pkt pm set npm .
-   ```
-
-3. **Project IDs**: Every project has a unique ULID. Use it when names are ambiguous:
-
-   ```bash
-   pkt open 01HJ9KJQ8D...
-   ```
-
-4. **Dependencies**: The `add` and `remove` commands must be run inside a project folder.
-
-5. **Package Manager Switching**: When you change PMs, pkt automatically updates scripts in package.json.
 
 ---
 
 ## Troubleshooting
 
-**"pkt not initialized"**
-→ Run `pkt start` first
+**"pkt not initialized"** → Run `pkt start` first
 
-**"database connection failed"**
-→ Ensure PostgreSQL is running and credentials are correct
+**"not in a tracked project"** → Run `pkt init .` inside the folder, or `cd` into a tracked project
 
-**"not in a tracked project"**
-→ Navigate to a project folder created with `pkt create`, or run from inside one
+**"no AI provider configured"** → Run `pkt config set-ai groq sk-xxxx` then `pkt config ai groq`
 
-**"package manager not available"**
-→ Install the package manager (pnpm/npm/bun) or choose a different one
+**"rate limit exceeded"** → Switch model: `pkt config set-model groq llama-3.1-8b-instant` or use a different provider
 
 ---
 
-## Development
-
-```bash
-# Run tests
-make test
-
-# Build for development
-make build
-
-# Clean build artifacts
-make clean
-```
-
----
-
-**For full documentation, see [README.md](file:///home/genesix/Documents/Workspace/pkt/README.md)**
+**For full documentation, see [README.md](README.md)**

@@ -165,11 +165,35 @@ func StartChatSession(provider string, projectContext string) error {
 
 		messages = append(messages, Message{Role: "user", Content: userInput})
 
+		// Trim context: keep system prompt + last 20 messages to avoid token overflow
+		const maxHistory = 20
+		if len(messages) > maxHistory+1 {
+			messages = append(messages[:1], messages[len(messages)-maxHistory:]...)
+		}
+
 		for {
 			fmt.Print("\033[1;36m╭─ 🤖 pkt-ai\033[0m \033[2m(thinking...)\033[0m\r")
 
-			responseMsg, err := SendMessages(messages, provider, definedTools)
-			// Clear thinking text
+			// Retry up to 3 times on rate limit (429) with exponential backoff
+			var responseMsg *Message
+			var err error
+			for attempt := 0; attempt < 3; attempt++ {
+				responseMsg, err = SendMessages(messages, provider, definedTools)
+				if err == nil {
+					break
+				}
+				// Check if it's a rate limit error — if so, wait and retry
+				errStr := err.Error()
+				if strings.Contains(errStr, "429") || strings.Contains(errStr, "rate_limit") || strings.Contains(errStr, "Rate limit") {
+					wait := time.Duration(2<<attempt) * time.Second // 2s, 4s, 8s
+					fmt.Printf("\033[33m⏳ Rate limited — retrying in %s...\033[0m\r", wait)
+					time.Sleep(wait)
+					continue
+				}
+				// Non-rate-limit error, stop retrying
+				break
+			}
+			// Clear thinking/retry text
 			fmt.Print("\033[K")
 
 			if err != nil {
