@@ -1,7 +1,6 @@
 package ai
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/chzyer/readline"
 	"github.com/genesix/pkt/internal/db"
 )
 
@@ -135,13 +135,25 @@ func StartChatSession(provider string, projectContext string) error {
 	fmt.Println("\033[1;36m│\033[0m  Type 'exit' or 'quit' to close the terminal gracefully. \033[1;36m│\033[0m")
 	fmt.Println("\033[1;36m╰──────────────────────────────────────────────────────────╯\033[0m")
 
-	scanner := bufio.NewScanner(os.Stdin)
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          "\n\033[1;32m╭─ You\033[0m\n\033[1;32m╰─❯\033[0m ",
+		HistoryFile:     "/tmp/pkt_chat_history.tmp",
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+	if err != nil {
+		fmt.Printf("Error initializing readline: %s\n", err)
+		return err
+	}
+	defer rl.Close()
+
 	for {
-		fmt.Print("\n\033[1;32m╭─ You\033[0m\n\033[1;32m╰─❯\033[0m ")
-		if !scanner.Scan() {
+		line, err := rl.Readline()
+		if err != nil { // handles EOF (Ctrl+D) and Interrupt (Ctrl+C)
 			break
 		}
-		userInput := strings.TrimSpace(scanner.Text())
+
+		userInput := strings.TrimSpace(line)
 		if userInput == "exit" || userInput == "quit" {
 			fmt.Println("Goodbye!")
 			break
