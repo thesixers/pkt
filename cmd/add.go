@@ -13,12 +13,13 @@ import (
 
 var (
 	devFlag bool
+	allFlag bool
 )
 
 var addCmd = &cobra.Command{
-	Use:   "add <package> [packages...]",
-	Short: "Add dependencies to the current project",
-	Long: `Add one or more dependencies to the current project using its package manager.
+	Use:   "add [packages...] | .",
+	Short: "Add or install dependencies for the current project",
+	Long: `Add one or more dependencies or install all dependencies using its package manager.
 Must be run inside a tracked project folder.
 
 Supports: JavaScript (npm/pnpm/bun), Python (uv/pip/poetry), Go, Rust
@@ -26,10 +27,27 @@ Supports: JavaScript (npm/pnpm/bun), Python (uv/pip/poetry), Go, Rust
 Examples:
   pkt add axios                    # JavaScript
   pkt add requests flask           # Python
-  pkt add -D typescript eslint     # Dev dependencies`,
-	Args: cobra.MinimumNArgs(1),
+  pkt add -D typescript eslint     # Dev dependencies
+  pkt add .                        # Install all dependencies
+  pkt add -a                       # Install all dependencies`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		isAll, _ := cmd.Flags().GetBool("all")
+		if !isAll && len(args) == 0 {
+			return fmt.Errorf("requires at least 1 package to add, or use --all / . to install all dependencies")
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		packages := args
+		isAll := allFlag
+		if len(packages) > 0 && packages[0] == "." {
+			isAll = true
+			packages = packages[1:]
+		}
+
+		if isAll && len(packages) > 0 {
+			return fmt.Errorf("cannot specify packages when using --all or .")
+		}
 
 		// Get current directory
 		cwd, err := os.Getwd()
@@ -49,12 +67,19 @@ Examples:
 			return err
 		}
 
-		// Add dependencies
-		packagesStr := strings.Join(packages, " ")
-		fmt.Printf("Adding %s...\n", packagesStr)
+		if isAll {
+			fmt.Printf("📦 Installing dependencies using %s for %s project...\n", project.PackageManager, project.Language)
+			if err := packageManager.Install(cwd); err != nil {
+				return fmt.Errorf("failed to install dependencies: %w", err)
+			}
+		} else {
+			// Add dependencies
+			packagesStr := strings.Join(packages, " ")
+			fmt.Printf("Adding %s...\n", packagesStr)
 
-		if err := packageManager.Add(cwd, packages, devFlag); err != nil {
-			return fmt.Errorf("failed to add dependencies: %w", err)
+			if err := packageManager.Add(cwd, packages, devFlag); err != nil {
+				return fmt.Errorf("failed to add dependencies: %w", err)
+			}
 		}
 
 		// Sync dependencies to database for all languages
@@ -64,13 +89,20 @@ Examples:
 		} else if len(deps) > 0 {
 			if err := db.SyncDependencies(project.ID, deps); err != nil {
 				fmt.Printf("⚠️  Warning: failed to sync dependencies: %v\n", err)
+			} else if isAll {
+				fmt.Printf("✓ Synced %d dependencies to database\n", len(deps))
 			}
 		}
 
-		if len(packages) == 1 {
-			fmt.Printf("✓ Added %s\n", packages[0])
+		if isAll {
+			fmt.Println("✓ Dependencies installed")
 		} else {
-			fmt.Printf("✓ Added %d packages: %s\n", len(packages), packagesStr)
+			if len(packages) == 1 {
+				fmt.Printf("✓ Added %s\n", packages[0])
+			} else {
+				packagesStr := strings.Join(packages, " ")
+				fmt.Printf("✓ Added %d packages: %s\n", len(packages), packagesStr)
+			}
 		}
 
 		return nil
@@ -79,4 +111,5 @@ Examples:
 
 func init() {
 	addCmd.Flags().BoolVarP(&devFlag, "dev", "D", false, "Add as dev dependency")
+	addCmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Install all dependencies")
 }

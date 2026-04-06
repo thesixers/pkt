@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // CreateProjectDir creates a project directory and returns its absolute path
@@ -81,4 +82,25 @@ func ExpandPath(path string) (string, error) {
 
 	// Always return absolute path to ensure consistent comparisons
 	return filepath.Abs(path)
+}
+
+// GetDirSize recursively calculates the total size of a directory
+func GetDirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	return size, err
+}
+
+// ShortPath replaces the user's home directory with ~
+func ShortPath(path string) string {
+	home, err := os.UserHomeDir()
+	if err == nil && strings.HasPrefix(path, home) {
+		return "~" + strings.TrimPrefix(path, home)
+	}
+	return path
 }

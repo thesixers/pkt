@@ -3,14 +3,21 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"text/tabwriter"
 
+	"github.com/dustin/go-humanize"
 	"github.com/genesix/pkt/internal/db"
 	"github.com/genesix/pkt/internal/lang"
+	"github.com/genesix/pkt/internal/utils"
 	"github.com/spf13/cobra"
 )
 
-var listLangFilter string
+var (
+	listLangFilter string
+	listNameFilter string
+	listAllFlag    bool
+)
 
 var listCmd = &cobra.Command{
 	Use:   "list",
@@ -40,6 +47,20 @@ Examples:
 			return fmt.Errorf("failed to list projects: %w", err)
 		}
 
+		if listNameFilter != "" {
+			nameRegex, err := regexp.Compile("(?i)" + listNameFilter)
+			if err != nil {
+				return fmt.Errorf("invalid filter regex: %w", err)
+			}
+			var filtered []*db.Project
+			for _, p := range projects {
+				if nameRegex.MatchString(p.Name) {
+					filtered = append(filtered, p)
+				}
+			}
+			projects = filtered
+		}
+
 		if len(projects) == 0 {
 			if listLangFilter != "" {
 				fmt.Printf("No %s projects found.\n", listLangFilter)
@@ -52,19 +73,37 @@ Examples:
 
 		// Create table writer
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		_, _ = fmt.Fprintln(w, "NAME\tLANG\tPM\tID\tPATH")
-		_, _ = fmt.Fprintln(w, "----\t----\t--\t--\t----")
+
+		if listAllFlag {
+			_, _ = fmt.Fprintln(w, "NAME\tLANG\tPM\tID\tSIZE\tPATH")
+			_, _ = fmt.Fprintln(w, "----\t----\t--\t--\t----\t----")
+		} else {
+			_, _ = fmt.Fprintln(w, "NAME\tLANG\tPATH")
+			_, _ = fmt.Fprintln(w, "----\t----\t----")
+		}
 
 		for _, project := range projects {
 			// Convert full language name to short code for display
 			shortLang := langToShort(project.Language)
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-				project.Name,
-				shortLang,
-				project.PackageManager,
-				project.ID,
-				project.Path,
-			)
+
+			if listAllFlag {
+				sizeBytes, _ := utils.GetDirSize(project.Path)
+				sizeStr := humanize.Bytes(uint64(sizeBytes))
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+					project.Name,
+					shortLang,
+					project.PackageManager,
+					project.ID,
+					sizeStr,
+					utils.ShortPath(project.Path),
+				)
+			} else {
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
+					project.Name,
+					shortLang,
+					utils.ShortPath(project.Path),
+				)
+			}
 		}
 
 		_ = w.Flush()
@@ -89,4 +128,6 @@ func langToShort(language string) string {
 
 func init() {
 	listCmd.Flags().StringVarP(&listLangFilter, "lang", "l", "", "Filter by language (js, py, go, rs)")
+	listCmd.Flags().StringVarP(&listNameFilter, "filter", "f", "", "Filter projects by regex on their name")
+	listCmd.Flags().BoolVarP(&listAllFlag, "all", "a", false, "Show all details including ID and Package Manager")
 }
