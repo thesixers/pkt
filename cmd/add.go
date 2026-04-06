@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/genesix/pkt/internal/ai"
 	"github.com/genesix/pkt/internal/db"
 	"github.com/genesix/pkt/internal/pm"
 	"github.com/genesix/pkt/internal/utils"
@@ -12,8 +13,10 @@ import (
 )
 
 var (
-	devFlag bool
-	allFlag bool
+	devFlag    bool
+	allFlag    bool
+	aiFlag     bool
+	aiProvider string
 )
 
 var addCmd = &cobra.Command{
@@ -67,6 +70,28 @@ Examples:
 			return err
 		}
 
+		if aiFlag {
+			if len(packages) == 0 {
+				return fmt.Errorf("please provide a description of the package you want when using --ai")
+			}
+			desc := strings.Join(packages, " ")
+
+			fmt.Println("🤖 Thinking...")
+			sysPrompt := fmt.Sprintf("You are a package-manager assistant for a %s project. The user wants to add a dependency based on their description. Return ONLY the exact space-separated module names to install. No explanation, no markdown backticks, no code blocks.", project.Language)
+			resp, err := ai.AskAI(sysPrompt, desc, aiProvider)
+			if err != nil {
+				return fmt.Errorf("ai error: %w", err)
+			}
+
+			resp = strings.TrimSpace(strings.ReplaceAll(resp, "`", ""))
+			if resp == "" {
+				return fmt.Errorf("AI could not determine packages to add")
+			}
+
+			packages = strings.Split(resp, " ")
+			fmt.Printf("🤖 AI suggests: \033[36m%s\033[0m\n\n", strings.Join(packages, " "))
+		}
+
 		if isAll {
 			fmt.Printf("📦 Installing dependencies using %s for %s project...\n", project.PackageManager, project.Language)
 			if err := packageManager.Install(cwd); err != nil {
@@ -112,4 +137,6 @@ Examples:
 func init() {
 	addCmd.Flags().BoolVarP(&devFlag, "dev", "D", false, "Add as dev dependency")
 	addCmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Install all dependencies")
+	addCmd.Flags().BoolVarP(&aiFlag, "ai", "", false, "Use AI to determine and add dependencies based on description")
+	addCmd.Flags().StringVarP(&aiProvider, "provider", "p", "", "Specific AI Provider to use with --ai (openai, gemini, groq)")
 }

@@ -9,10 +9,14 @@ import (
 
 // Config represents the pkt configuration
 type Config struct {
-	ProjectsRoot  string `json:"projects_root"`
-	DefaultPM     string `json:"default_pm"`
-	EditorCommand string `json:"editor"`
-	Initialized   bool   `json:"initialized"`
+	ProjectsRoot  string            `json:"projects_root"`
+	DefaultPM     string            `json:"default_pm"`
+	EditorCommand string            `json:"editor"`
+	Initialized   bool              `json:"initialized"`
+	AIProvider    string            `json:"ai_provider,omitempty"`
+	AIKey         string            `json:"ai_key,omitempty"` // legacy fallback
+	AIKeys        map[string]string `json:"ai_keys,omitempty"`
+	AIModels      map[string]string `json:"ai_models,omitempty"`
 }
 
 // configPath returns the path to the config file
@@ -60,6 +64,13 @@ func Load() (*Config, error) {
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	if cfg.AIKeys == nil {
+		cfg.AIKeys = make(map[string]string)
+	}
+	if cfg.AIModels == nil {
+		cfg.AIModels = make(map[string]string)
 	}
 
 	return &cfg, nil
