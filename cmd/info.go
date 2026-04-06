@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	"github.com/genesix/pkt/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -30,9 +31,13 @@ var infoCmd = &cobra.Command{
 			return nil
 		}
 
+		sizeBytes, _ := utils.GetDirSize(project.Path)
+		sizeStr := humanize.Bytes(uint64(sizeBytes))
+
 		fmt.Printf("\nProject Info: %s\n", project.Name)
 		fmt.Printf("ID: %s\n", project.ID)
-		fmt.Printf("Path: %s\n", project.Path)
+		fmt.Printf("Size: %s\n", sizeStr)
+		fmt.Printf("Path: %s\n", utils.ShortPath(project.Path))
 		fmt.Println(strings.Repeat("-", 40))
 		fmt.Println(infoText)
 		fmt.Println(strings.Repeat("-", 40))
