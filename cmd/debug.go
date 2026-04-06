@@ -42,7 +42,8 @@ var debugCmd = &cobra.Command{
 			sysPrompt = fmt.Sprintf("You are deeply analyzing stack traces for a %s project managed by %s. Identify the bug precisely and provide exactly how to fix it with the correct code or command.", project.Language, project.PackageManager)
 		}
 
-		fmt.Println("🤖 Analyzing stack trace...\n")
+		fmt.Println("🤖 Analyzing stack trace...")
+		fmt.Println()
 
 		resp, err := ai.AskAI(sysPrompt, errorLog, debugProvider)
 		if err != nil {

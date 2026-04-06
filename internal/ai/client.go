@@ -93,7 +93,7 @@ func SendMessages(messages []Message, preferredProvider string, tools []Tool) (*
 		if cfg.AIKey != "" && cfg.AIProvider == provider {
 			apiKey = cfg.AIKey
 			cfg.AIKeys[provider] = apiKey
-			config.Save(cfg)
+			_ = config.Save(cfg)
 		} else {
 			return nil, fmt.Errorf("API Key not set for provider '%s'. Run 'pkt config set-ai %s <key>'", provider, provider)
 		}

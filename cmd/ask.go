@@ -34,7 +34,8 @@ var askCmd = &cobra.Command{
 		}
 
 		question := strings.Join(args, " ")
-		fmt.Println("🤖 Thinking...\n")
+		fmt.Println("🤖 Thinking...")
+		fmt.Println()
 
 		resp, err := ai.AskAI(sysPrompt, question, askProvider)
 		if err != nil {

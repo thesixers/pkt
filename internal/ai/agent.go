@@ -258,7 +258,7 @@ func executeToolCall(call CallFunction) string {
 		content, _ := args["content"].(string)
 		dir := filepath.Dir(path)
 		if dir != "" && dir != "." {
-			os.MkdirAll(dir, 0755)
+			_ = os.MkdirAll(dir, 0755)
 		}
 		err := os.WriteFile(path, []byte(content), 0644)
 		if err != nil {

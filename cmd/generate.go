@@ -24,7 +24,8 @@ var generateCmd = &cobra.Command{
 		}
 
 		desc := strings.Join(args, " ")
-		fmt.Println("🤖 Generating...\n")
+		fmt.Println("🤖 Generating...")
+		fmt.Println()
 
 		sysPrompt := fmt.Sprintf("You are a senior engineer scaffolding code for a %s project named '%s' using %s. Write the requested code completely and accurately. If returning files, state the filename at the top. Minimize conversational filler.", project.Language, project.Name, project.PackageManager)
 
