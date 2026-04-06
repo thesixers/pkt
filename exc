@@ -1,0 +1,10 @@
+
+num=$1
+
+rm -rf ./bin 
+
+make build
+
+mv ~/bin/pkt ~/bin/pkt_bk$num
+
+mv ./bin/pkt ~/bin/pkt
