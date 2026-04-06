@@ -19,6 +19,7 @@ import (
 var (
 	cloneName    string
 	cloneInstall bool
+	cloneOpen    bool
 )
 
 var cloneCmd = &cobra.Command{
@@ -120,6 +121,15 @@ Examples:
 			fmt.Println("✓ Dependencies installed")
 		}
 
+		if cloneOpen && cfg.EditorCommand != "" {
+			editorCmd := exec.Command(cfg.EditorCommand, project.Path)
+			if err := editorCmd.Start(); err != nil {
+				fmt.Printf("⚠️  Warning: failed to open editor: %v\n", err)
+			} else {
+				fmt.Printf("✓ Opening %s in %s\n", projectName, cfg.EditorCommand)
+			}
+		}
+
 		return nil
 	},
 }
@@ -158,5 +168,6 @@ func extractRepoName(repoURL string) string {
 func init() {
 	cloneCmd.Flags().StringVarP(&cloneName, "name", "n", "", "Custom name for the project")
 	cloneCmd.Flags().BoolVarP(&cloneInstall, "install", "i", false, "Run install after cloning")
+	cloneCmd.Flags().BoolVarP(&cloneOpen, "open", "o", false, "Open project in editor after cloning")
 	rootCmd.AddCommand(cloneCmd)
 }

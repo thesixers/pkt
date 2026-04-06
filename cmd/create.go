@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/genesix/pkt/internal/config"
@@ -12,7 +13,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var createLang string
+var (
+	createLang string
+	createOpen bool
+)
 
 var createCmd = &cobra.Command{
 	Use:   "create <project-name>",
@@ -139,10 +143,20 @@ Examples:
 		fmt.Printf("  Language: %s\n", langImpl.DisplayName())
 		fmt.Printf("  Package Manager: %s\n", project.PackageManager)
 
+		if createOpen && cfg.EditorCommand != "" {
+			editorCmd := exec.Command(cfg.EditorCommand, project.Path)
+			if err := editorCmd.Start(); err != nil {
+				fmt.Printf("⚠️  Warning: failed to open editor: %v\n", err)
+			} else {
+				fmt.Printf("✓ Opening %s in %s\n", projectName, cfg.EditorCommand)
+			}
+		}
+
 		return nil
 	},
 }
 
 func init() {
 	createCmd.Flags().StringVarP(&createLang, "lang", "l", "", "Project language (js, py, go, rs)")
+	createCmd.Flags().BoolVarP(&createOpen, "open", "o", false, "Open project in editor after creation")
 }
