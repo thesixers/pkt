@@ -136,7 +136,7 @@ func StartChatSession(provider string, projectContext string) error {
 	fmt.Println("\033[1;36m╰──────────────────────────────────────────────────────────╯\033[0m")
 
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          "\n\033[1;32m╭─ You\033[0m\n\033[1;32m╰─❯\033[0m ",
+		Prompt:          "\033[1;32m╰─❯\033[0m ",
 		HistoryFile:     "/tmp/pkt_chat_history.tmp",
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
@@ -148,6 +148,7 @@ func StartChatSession(provider string, projectContext string) error {
 	defer rl.Close()
 
 	for {
+		fmt.Print("\n\033[1;32m╭─ You\033[0m\n")
 		line, err := rl.Readline()
 		if err != nil { // handles EOF (Ctrl+D) and Interrupt (Ctrl+C)
 			break

@@ -7,16 +7,27 @@ import (
 	"path/filepath"
 )
 
+// ProviderConfig holds the settings for one AI provider.
+// Cloud providers set APIKey; local providers set BaseURL instead.
+type ProviderConfig struct {
+	APIKey  string `json:"api_key,omitempty"`  // empty for local providers
+	BaseURL string `json:"base_url,omitempty"` // override or localhost URL
+	Model   string `json:"model,omitempty"`    // pinned model name
+}
+
 // Config represents the pkt configuration
 type Config struct {
-	ProjectsRoot  string            `json:"projects_root"`
-	DefaultPM     string            `json:"default_pm"`
-	EditorCommand string            `json:"editor"`
-	Initialized   bool              `json:"initialized"`
-	AIProvider    string            `json:"ai_provider,omitempty"`
-	AIKey         string            `json:"ai_key,omitempty"` // legacy fallback
-	AIKeys        map[string]string `json:"ai_keys,omitempty"`
-	AIModels      map[string]string `json:"ai_models,omitempty"`
+	ProjectsRoot  string                    `json:"projects_root"`
+	DefaultPM     string                    `json:"default_pm"`
+	EditorCommand string                    `json:"editor"`
+	Initialized   bool                      `json:"initialized"`
+	AIProvider    string                    `json:"ai_provider,omitempty"`
+	AIProviders   map[string]ProviderConfig `json:"ai_providers,omitempty"`
+
+	// Legacy fields — kept for migration only, do not use directly
+	AIKey    string            `json:"ai_key,omitempty"`
+	AIKeys   map[string]string `json:"ai_keys,omitempty"`
+	AIModels map[string]string `json:"ai_models,omitempty"`
 }
 
 // configPath returns the path to the config file
@@ -66,11 +77,37 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	if cfg.AIKeys == nil {
-		cfg.AIKeys = make(map[string]string)
+	if cfg.AIProviders == nil {
+		cfg.AIProviders = make(map[string]ProviderConfig)
 	}
-	if cfg.AIModels == nil {
-		cfg.AIModels = make(map[string]string)
+
+	// Migrate legacy flat maps into the new registry
+	migrated := false
+	for name, key := range cfg.AIKeys {
+		if _, exists := cfg.AIProviders[name]; !exists {
+			pc := cfg.AIProviders[name]
+			pc.APIKey = key
+			if m, ok := cfg.AIModels[name]; ok {
+				pc.Model = m
+			}
+			cfg.AIProviders[name] = pc
+			migrated = true
+		}
+	}
+	// Migrate the single legacy ai_key
+	if cfg.AIKey != "" && cfg.AIProvider != "" {
+		if p, exists := cfg.AIProviders[cfg.AIProvider]; !exists || p.APIKey == "" {
+			pc := cfg.AIProviders[cfg.AIProvider]
+			pc.APIKey = cfg.AIKey
+			cfg.AIProviders[cfg.AIProvider] = pc
+			migrated = true
+		}
+	}
+	if migrated {
+		cfg.AIKeys = nil
+		cfg.AIModels = nil
+		cfg.AIKey = ""
+		_ = Save(&cfg)
 	}
 
 	return &cfg, nil
@@ -83,19 +120,16 @@ func Save(cfg *Config) error {
 		return err
 	}
 
-	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Marshal config to JSON
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	// Write to file
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
