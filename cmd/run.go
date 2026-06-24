@@ -76,19 +76,20 @@ Examples:
 			if pManager == nil {
 				cfg, _ := config.Load()
 				ext := filepath.Ext(target)
-				if ext == ".ts" || ext == ".tsx" || ext == ".js" || ext == ".mjs" {
+				switch ext {
+				case ".ts", ".tsx", ".js", ".mjs":
 					defaultJS := "npm"
 					if cfg != nil && cfg.DefaultPM != "" {
 						defaultJS = cfg.DefaultPM
 					}
 					pManager, _ = pm.Get("javascript", defaultJS)
-				} else if ext == ".py" {
+				case ".py":
 					pManager, _ = pm.Get("python", "pip")
-				} else if ext == ".go" {
+				case ".go":
 					pManager, _ = pm.Get("go", "go")
-				} else if ext == ".rs" {
+				case ".rs":
 					pManager, _ = pm.Get("rust", "cargo")
-				} else {
+				default:
 					return executeDirect(target, interpFlags, scriptArgs, cwd)
 				}
 			}
@@ -200,7 +201,7 @@ func executeDirect(target string, interpFlags, args []string, cwd string) error 
 	cmdArgs = append(cmdArgs, args...)
 	
 	// Assume the first flag is not the executable if we are direct executing
-	executable := "./" + target
+	var executable string
 	execArgs := cmdArgs[1:]
 	if len(interpFlags) > 0 {
 		executable = interpFlags[0]

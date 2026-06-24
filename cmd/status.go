@@ -44,8 +44,8 @@ var statusCmd = &cobra.Command{
 		fmt.Println()
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "PROJECT\tSTATUS\tBRANCH")
-		fmt.Fprintln(w, "-------\t------\t------")
+		_, _ = fmt.Fprintln(w, "PROJECT\tSTATUS\tBRANCH")
+		_, _ = fmt.Fprintln(w, "-------\t------\t------")
 
 		var hasRepos bool
 		for _, p := range projects {
@@ -76,7 +76,7 @@ var statusCmd = &cobra.Command{
 				branchStr = "unknown"
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\n", p.Name, statusStr, branchStr)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", p.Name, statusStr, branchStr)
 		}
 
 		if !hasRepos {
@@ -84,7 +84,7 @@ var statusCmd = &cobra.Command{
 			return nil
 		}
 
-		w.Flush()
+		_ = w.Flush()
 		return nil
 	},
 }

@@ -59,7 +59,7 @@ func (c *Cargo) Run(workDir string, script string, args []string) error {
 }
 
 func (c *Cargo) RunFile(workDir string, target string, interpFlags []string, args []string) error {
-	return fmt.Errorf("Rust does not support running individual files outside a cargo project. Use 'pkt run run' or 'pkt run <binary-name>'")
+	return fmt.Errorf("rust does not support running individual files outside a cargo project. Use 'pkt run run' or 'pkt run <binary-name>'")
 }
 
 func (c *Cargo) Update(workDir string, packages []string) error {

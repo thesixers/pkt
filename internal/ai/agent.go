@@ -145,7 +145,7 @@ func StartChatSession(provider string, projectContext string) error {
 		fmt.Printf("Error initializing readline: %s\n", err)
 		return err
 	}
-	defer rl.Close()
+	defer func() { _ = rl.Close() }()
 
 	for {
 		fmt.Print("\n\033[1;32m╭─ You\033[0m\n")

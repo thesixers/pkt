@@ -50,7 +50,7 @@ Examples:
 		}
 
 		if isAll && len(packages) > 0 {
-			return fmt.Errorf("cannot specify packages when using --all or .")
+			return fmt.Errorf("cannot specify packages when using --all or the current directory")
 		}
 
 		// Get current directory

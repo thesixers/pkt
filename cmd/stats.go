@@ -45,12 +45,12 @@ var statsCmd = &cobra.Command{
 
 		fmt.Println("\n\033[1mLanguage Breakdown:\033[0m")
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "LANGUAGE\tCOUNT\tSIZE")
-		fmt.Fprintln(w, "--------\t-----\t----")
+		_, _ = fmt.Fprintln(w, "LANGUAGE\tCOUNT\tSIZE")
+		_, _ = fmt.Fprintln(w, "--------\t-----\t----")
 		for lang, count := range langCounts {
-			fmt.Fprintf(w, "%s\t%d\t%s\n", lang, count, humanize.Bytes(uint64(langSize[lang])))
+			_, _ = fmt.Fprintf(w, "%s\t%d\t%s\n", lang, count, humanize.Bytes(uint64(langSize[lang])))
 		}
-		w.Flush()
+		_ = w.Flush()
 
 		return nil
 	},

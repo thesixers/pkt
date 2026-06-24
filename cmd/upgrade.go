@@ -34,7 +34,7 @@ var upgradeCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to fetch latest release: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode == 404 {
 			return fmt.Errorf("no releases found yet for thesixers/pkt on GitHub. Please check back later")
@@ -84,7 +84,7 @@ var upgradeCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to download binary: %w", err)
 		}
-		defer binResp.Body.Close()
+		defer func() { _ = binResp.Body.Close() }()
 
 		if binResp.StatusCode != 200 {
 			return fmt.Errorf("download failed with status code: %d", binResp.StatusCode)
@@ -105,17 +105,17 @@ var upgradeCmd = &cobra.Command{
 
 		// Copy downloaded data to temp file
 		if _, err := io.Copy(out, binResp.Body); err != nil {
-			out.Close()
-			os.Remove(tmpFile)
+			_ = out.Close()
+			_ = os.Remove(tmpFile)
 			return fmt.Errorf("failed to write binary: %w", err)
 		}
-		out.Close()
+		_ = out.Close()
 
 		// Replace the old executable with the new one
 		fmt.Println("🔄 Replacing old version...")
 		if err := os.Rename(tmpFile, exePath); err != nil {
 			// Fallback: try to remove original first (required on Windows, occasionally on Linux)
-			os.Remove(exePath)
+			_ = os.Remove(exePath)
 			if renameErr := os.Rename(tmpFile, exePath); renameErr != nil {
 				return fmt.Errorf("failed to replace executable. Try running with sudo. Error: %w", err)
 			}

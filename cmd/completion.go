@@ -139,17 +139,7 @@ func completeAIProviderArg(_ *cobra.Command, args []string, toComplete string) (
 	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
-// completePMThenProject completes PM name for first arg, project name for second.
-// DEPRECATED: This was used by pm set which is now removed. Keeping function signature to avoid breaking other files if imported.
-func completePMThenProject(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) == 0 {
-		return completionFilter(pm.ListAvailable(), toComplete), cobra.ShellCompDirectiveNoFileComp
-	}
-	if len(args) == 1 {
-		return completeProjectOrDot(cmd, args, toComplete)
-	}
-	return nil, cobra.ShellCompDirectiveNoFileComp
-}
+
 
 // completeLangFlag completes language short-code values for --lang flags.
 func completeLangFlag(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
