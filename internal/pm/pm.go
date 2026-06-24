@@ -29,6 +29,9 @@ type PackageManager interface {
 	// Run runs a script or command
 	Run(workDir string, script string, args []string) error
 
+	// RunFile runs a specific file with optional interpreter flags
+	RunFile(workDir string, target string, interpFlags []string, args []string) error
+
 	// Update updates packages (empty slice = update all)
 	Update(workDir string, packages []string) error
 

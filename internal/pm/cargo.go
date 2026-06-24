@@ -1,6 +1,9 @@
 package pm
 
-import "os/exec"
+import (
+	"fmt"
+	"os/exec"
+)
 
 // Cargo implements PackageManager for Rust's Cargo
 type Cargo struct{}
@@ -19,12 +22,12 @@ func (c *Cargo) Add(workDir string, packages []string, dev bool) error {
 		args = append(args, "--dev")
 	}
 	args = append(args, packages...)
-	return runCommand("cargo", args, workDir)
+	return runCommandInteractive("cargo", args, workDir)
 }
 
 func (c *Cargo) Remove(workDir string, packages []string) error {
 	args := append([]string{"remove"}, packages...)
-	return runCommand("cargo", args, workDir)
+	return runCommandInteractive("cargo", args, workDir)
 }
 
 func (c *Cargo) Install(workDir string) error {
@@ -55,6 +58,10 @@ func (c *Cargo) Run(workDir string, script string, args []string) error {
 	}
 }
 
+func (c *Cargo) RunFile(workDir string, target string, interpFlags []string, args []string) error {
+	return fmt.Errorf("Rust does not support running individual files outside a cargo project. Use 'pkt run run' or 'pkt run <binary-name>'")
+}
+
 func (c *Cargo) Update(workDir string, packages []string) error {
 	args := []string{"update"}
 	if len(packages) > 0 {
@@ -62,7 +69,7 @@ func (c *Cargo) Update(workDir string, packages []string) error {
 			args = append(args, "-p", pkg)
 		}
 	}
-	return runCommand("cargo", args, workDir)
+	return runCommandInteractive("cargo", args, workDir)
 }
 
 func (c *Cargo) IsAvailable() bool {

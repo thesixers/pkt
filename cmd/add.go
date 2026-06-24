@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/genesix/pkt/internal/ai"
 	"github.com/genesix/pkt/internal/db"
 	"github.com/genesix/pkt/internal/pm"
@@ -88,8 +89,39 @@ Examples:
 				return fmt.Errorf("AI could not determine packages to add")
 			}
 
-			packages = strings.Split(resp, " ")
-			fmt.Printf("🤖 AI suggests: \033[36m%s\033[0m\n\n", strings.Join(packages, " "))
+			aiPackages := strings.Split(resp, " ")
+			
+			var cleanPkgs []string
+			for _, p := range aiPackages {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					cleanPkgs = append(cleanPkgs, p)
+				}
+			}
+
+			if len(cleanPkgs) == 0 {
+				return fmt.Errorf("AI could not determine packages to add")
+			}
+
+			// Interactive selection
+			prompt := &survey.MultiSelect{
+				Message: "🤖 AI suggested the following packages. Select the ones you want to install:",
+				Options: cleanPkgs,
+				Default: cleanPkgs, // Select all by default
+			}
+
+			var selected []string
+			if err := survey.AskOne(prompt, &selected); err != nil {
+				return fmt.Errorf("cancelled: %w", err)
+			}
+
+			if len(selected) == 0 {
+				fmt.Println("No packages selected. Aborting.")
+				return nil
+			}
+
+			packages = selected
+			fmt.Println()
 		}
 
 		if isAll {

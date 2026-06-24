@@ -44,6 +44,12 @@ Examples:
 			return fmt.Errorf("failed to resolve path: %w", err)
 		}
 
+		// SAFETY CHECK: Prevent initializing system-critical directories
+		homeDir, _ := os.UserHomeDir()
+		if absPath == "/" || absPath == homeDir || absPath == "/etc" || absPath == "/usr" || absPath == "/var" {
+			return fmt.Errorf("DANGER: Cannot initialize and move critical system directories (%s)", absPath)
+		}
+
 		// Check if folder exists
 		info, err := os.Stat(absPath)
 		if err != nil {

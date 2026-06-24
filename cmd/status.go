@@ -9,17 +9,30 @@ import (
 	"text/tabwriter"
 
 	"github.com/genesix/pkt/internal/db"
+	"github.com/genesix/pkt/internal/utils"
 	"github.com/spf13/cobra"
 )
 
 var statusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Check global git status",
-	Long:  "Check the git status of all tracked projects to find uncommitted changes or missing pushes.",
+	Use:   "status [project | id | .]",
+	Short: "Check git status",
+	Long:  "Check the git status of all tracked projects, or a specific project, to find uncommitted changes or missing pushes.",
+	Args:  cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeProjectOrDot,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		projects, err := db.ListAllProjects()
-		if err != nil {
-			return err
+		var projects []*db.Project
+		if len(args) == 1 {
+			p, err := utils.ResolveProject(args[0])
+			if err != nil {
+				return err
+			}
+			projects = []*db.Project{p}
+		} else {
+			var err error
+			projects, err = db.ListAllProjects()
+			if err != nil {
+				return err
+			}
 		}
 
 		if len(projects) == 0 {

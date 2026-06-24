@@ -27,16 +27,16 @@ func (u *UV) Add(workDir string, packages []string, dev bool) error {
 		args = append(args, "--dev")
 	}
 	args = append(args, packages...)
-	return runCommand("uv", args, workDir)
+	return runCommandInteractive("uv", args, workDir)
 }
 
 func (u *UV) Remove(workDir string, packages []string) error {
 	args := append([]string{"remove"}, packages...)
-	return runCommand("uv", args, workDir)
+	return runCommandInteractive("uv", args, workDir)
 }
 
 func (u *UV) Install(workDir string) error {
-	return runCommand("uv", []string{"sync"}, workDir)
+	return runCommandInteractive("uv", []string{"sync"}, workDir)
 }
 
 func (u *UV) Init(workDir string) error {
@@ -49,13 +49,20 @@ func (u *UV) Run(workDir string, script string, args []string) error {
 	return runCommandInteractive("uv", cmdArgs, workDir)
 }
 
+func (u *UV) RunFile(workDir string, target string, interpFlags []string, args []string) error {
+	cmdArgs := append([]string{"run", "python"}, interpFlags...)
+	cmdArgs = append(cmdArgs, target)
+	cmdArgs = append(cmdArgs, args...)
+	return runCommandInteractive("uv", cmdArgs, workDir)
+}
+
 func (u *UV) Update(workDir string, packages []string) error {
 	if len(packages) == 0 {
-		return runCommand("uv", []string{"lock", "--upgrade"}, workDir)
+		return runCommandInteractive("uv", []string{"lock", "--upgrade"}, workDir)
 	}
 	args := []string{"lock", "--upgrade-package"}
 	args = append(args, packages...)
-	return runCommand("uv", args, workDir)
+	return runCommandInteractive("uv", args, workDir)
 }
 
 func (u *UV) IsAvailable() bool {
@@ -133,7 +140,7 @@ func (p *Pip) Add(workDir string, packages []string, dev bool) error {
 	// Install using venv pip
 	pip := p.venvPip(workDir)
 	args := append([]string{"install"}, packages...)
-	if err := runCommand(pip, args, workDir); err != nil {
+	if err := runCommandInteractive(pip, args, workDir); err != nil {
 		return err
 	}
 
@@ -167,7 +174,7 @@ func (p *Pip) Remove(workDir string, packages []string) error {
 
 	pip := p.venvPip(workDir)
 	args := append([]string{"uninstall", "-y"}, packages...)
-	if err := runCommand(pip, args, workDir); err != nil {
+	if err := runCommandInteractive(pip, args, workDir); err != nil {
 		return err
 	}
 
@@ -184,7 +191,7 @@ func (p *Pip) Install(workDir string) error {
 	reqPath := filepath.Join(workDir, "requirements.txt")
 	if _, err := os.Stat(reqPath); err == nil {
 		pip := p.venvPip(workDir)
-		return runCommand(pip, []string{"install", "-r", "requirements.txt"}, workDir)
+		return runCommandInteractive(pip, []string{"install", "-r", "requirements.txt"}, workDir)
 	}
 	return nil
 }
@@ -243,6 +250,32 @@ func (p *Pip) Run(workDir string, script string, args []string) error {
 		cmdArgs = append(cmdArgs, args...)
 		return runCommandInteractive(python, cmdArgs, workDir)
 	}
+}
+
+func (p *Pip) RunFile(workDir string, target string, interpFlags []string, args []string) error {
+	var python string
+	
+	// Check if venv exists without auto-creating it
+	venvDir := p.venvPath(workDir)
+	if _, err := os.Stat(venvDir); err == nil {
+		python = p.venvPython(workDir)
+	} else {
+		python = "python3"
+		if !checkTool("python3") {
+			python = "python"
+		}
+	}
+
+	cmdArgs := append([]string{}, interpFlags...)
+	cmdArgs = append(cmdArgs, target)
+	cmdArgs = append(cmdArgs, args...)
+	return runCommandInteractive(python, cmdArgs, workDir)
+}
+
+// checkTool locally checks if command exists
+func checkTool(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
 }
 
 // isStreamlitApp checks if a Python file contains Streamlit imports
@@ -309,14 +342,14 @@ func (p *Pip) Update(workDir string, packages []string) error {
 		// Update all packages from requirements.txt
 		reqPath := filepath.Join(workDir, "requirements.txt")
 		if _, err := os.Stat(reqPath); err == nil {
-			return runCommand(pip, []string{"install", "-U", "-r", "requirements.txt"}, workDir)
+			return runCommandInteractive(pip, []string{"install", "-U", "-r", "requirements.txt"}, workDir)
 		}
 		return nil
 	}
 
 	args := []string{"install", "-U"}
 	args = append(args, packages...)
-	return runCommand(pip, args, workDir)
+	return runCommandInteractive(pip, args, workDir)
 }
 
 func (p *Pip) IsAvailable() bool {
@@ -345,16 +378,16 @@ func (p *Poetry) Add(workDir string, packages []string, dev bool) error {
 		args = append(args, "--group", "dev")
 	}
 	args = append(args, packages...)
-	return runCommand("poetry", args, workDir)
+	return runCommandInteractive("poetry", args, workDir)
 }
 
 func (p *Poetry) Remove(workDir string, packages []string) error {
 	args := append([]string{"remove"}, packages...)
-	return runCommand("poetry", args, workDir)
+	return runCommandInteractive("poetry", args, workDir)
 }
 
 func (p *Poetry) Install(workDir string) error {
-	return runCommand("poetry", []string{"install"}, workDir)
+	return runCommandInteractive("poetry", []string{"install"}, workDir)
 }
 
 func (p *Poetry) Init(workDir string) error {
@@ -372,10 +405,17 @@ func (p *Poetry) Run(workDir string, script string, args []string) error {
 	return runCommandInteractive("poetry", cmdArgs, workDir)
 }
 
+func (p *Poetry) RunFile(workDir string, target string, interpFlags []string, args []string) error {
+	cmdArgs := append([]string{"run", "python"}, interpFlags...)
+	cmdArgs = append(cmdArgs, target)
+	cmdArgs = append(cmdArgs, args...)
+	return runCommandInteractive("poetry", cmdArgs, workDir)
+}
+
 func (p *Poetry) Update(workDir string, packages []string) error {
 	args := []string{"update"}
 	args = append(args, packages...)
-	return runCommand("poetry", args, workDir)
+	return runCommandInteractive("poetry", args, workDir)
 }
 
 func (p *Poetry) IsAvailable() bool {

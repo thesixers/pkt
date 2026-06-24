@@ -5,12 +5,14 @@ import (
 
 	"github.com/genesix/pkt/internal/config"
 	"github.com/genesix/pkt/internal/db"
+	"github.com/genesix/pkt/internal/version"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "pkt",
-	Short: "Project Kit - A universal project manager for JS, Python, Go, and Rust",
+	Use:     "pkt",
+	Version: version.Version,
+	Short:   "Project Kit - A universal project manager for JS, Python, Go, and Rust",
 	Long: `pkt (Project Kit) is a universal project manager and dependency tracker.
 
 Supported Languages:
@@ -76,8 +78,6 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(removeCmd)
 	rootCmd.AddCommand(depsCmd)
-	rootCmd.AddCommand(pmCmd)
-	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(renameCmd)
 }
 

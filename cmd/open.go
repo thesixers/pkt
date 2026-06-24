@@ -14,7 +14,8 @@ var openCmd = &cobra.Command{
 	Short: "Open a project in your configured editor",
 	Long: `Open a project in your configured editor.
 You can specify the project by name, ID, or use "." for the current directory.`,
-	Args: cobra.ExactArgs(1),
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeProjectOrDot,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		input := args[0]
 

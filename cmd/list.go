@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"text/tabwriter"
 
 	"github.com/dustin/go-humanize"
 	"github.com/genesix/pkt/internal/db"
 	"github.com/genesix/pkt/internal/lang"
 	"github.com/genesix/pkt/internal/utils"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
@@ -71,42 +71,40 @@ Examples:
 			return nil
 		}
 
-		// Create table writer
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
+		t.SetStyle(table.StyleRounded)
 
 		if listAllFlag {
-			_, _ = fmt.Fprintln(w, "NAME\tLANG\tPM\tID\tSIZE\tPATH")
-			_, _ = fmt.Fprintln(w, "----\t----\t--\t--\t----\t----")
+			t.AppendHeader(table.Row{"NAME", "LANG", "PM", "ID", "SIZE", "PATH"})
 		} else {
-			_, _ = fmt.Fprintln(w, "NAME\tLANG\tPATH")
-			_, _ = fmt.Fprintln(w, "----\t----\t----")
+			t.AppendHeader(table.Row{"NAME", "LANG", "PATH"})
 		}
 
 		for _, project := range projects {
-			// Convert full language name to short code for display
 			shortLang := langToShort(project.Language)
 
 			if listAllFlag {
 				sizeBytes, _ := utils.GetDirSize(project.Path)
 				sizeStr := humanize.Bytes(uint64(sizeBytes))
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				t.AppendRow(table.Row{
 					project.Name,
 					shortLang,
 					project.PackageManager,
 					project.ID,
 					sizeStr,
 					utils.ShortPath(project.Path),
-				)
+				})
 			} else {
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
+				t.AppendRow(table.Row{
 					project.Name,
 					shortLang,
 					utils.ShortPath(project.Path),
-				)
+				})
 			}
 		}
 
-		_ = w.Flush()
+		t.Render()
 
 		return nil
 	},
@@ -130,4 +128,5 @@ func init() {
 	listCmd.Flags().StringVarP(&listLangFilter, "lang", "l", "", "Filter by language (js, py, go, rs)")
 	listCmd.Flags().StringVarP(&listNameFilter, "filter", "f", "", "Filter projects by regex on their name")
 	listCmd.Flags().BoolVarP(&listAllFlag, "all", "a", false, "Show all details including ID and Package Manager")
+	_ = listCmd.RegisterFlagCompletionFunc("lang", completeLangFlag)
 }

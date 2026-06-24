@@ -27,6 +27,13 @@ Examples:
   pkt exec my-go-app go build -o bin/app
   pkt exec my-rs-app cargo build --release`,
 	Args: cobra.MinimumNArgs(2),
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			return completeProjects(cmd, args, toComplete)
+		}
+		// After the project name, the user types a shell command — no completion
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projectRef := args[0]
 		command := args[1]

@@ -4,12 +4,14 @@
 BINARY_NAME=pkt
 BUILD_DIR=bin
 INSTALL_DIR=/usr/local/bin
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS := -ldflags="-X github.com/genesix/pkt/internal/version.Version=$(VERSION)"
 
 # Build the binary
 build:
-	@echo "Building $(BINARY_NAME)..."
+	@echo "Building $(BINARY_NAME) $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) .
+	@go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
 	@echo "✓ Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 # Install to system

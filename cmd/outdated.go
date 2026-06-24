@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/genesix/pkt/internal/db"
 	"github.com/genesix/pkt/internal/utils"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
@@ -19,12 +19,13 @@ var outdatedCmd = &cobra.Command{
 	Long: `Check for outdated dependencies in a project.
 If no project is specified, uses the current directory.
 
-Supports: JavaScript (npm/pnpm), Python (pip), Go, Rust
+Supports: JavaScript (npm/pnpm), Python (pip/poetry), Go, Rust
 
 Examples:
   pkt outdated           # Check current project
   pkt outdated my-app    # Check specific project`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeProjects,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var project *db.Project
 		var err error
@@ -141,13 +142,16 @@ func checkOutdatedPython(workDir, pm string) error {
 	}
 
 	// Display in table format
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCURRENT\tLATEST\tTYPE")
-	_, _ = fmt.Fprintln(w, "----\t-------\t------\t----")
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleRounded)
+	t.AppendHeader(table.Row{"NAME", "CURRENT", "LATEST", "TYPE"})
+
 	for _, pkg := range outdated {
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\tprod\n", pkg.Name, pkg.Version, pkg.LatestVersion)
+		t.AppendRow(table.Row{pkg.Name, pkg.Version, pkg.LatestVersion, "prod"})
 	}
-	_ = w.Flush()
+
+	t.Render()
 
 	return nil
 }
@@ -164,9 +168,10 @@ func checkOutdatedGo(workDir string) error {
 	lines := strings.Split(string(output), "\n")
 	hasOutdated := false
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCURRENT\tLATEST")
-	_, _ = fmt.Fprintln(w, "----\t-------\t------")
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleRounded)
+	t.AppendHeader(table.Row{"NAME", "CURRENT", "LATEST"})
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -181,7 +186,7 @@ func checkOutdatedGo(workDir string) error {
 				name := parts[0]
 				current := parts[1]
 				latest := strings.Trim(parts[2], "[]")
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", name, current, latest)
+				t.AppendRow(table.Row{name, current, latest})
 				hasOutdated = true
 			}
 		}
@@ -192,7 +197,7 @@ func checkOutdatedGo(workDir string) error {
 		return nil
 	}
 
-	_ = w.Flush()
+	t.Render()
 	return nil
 }
 

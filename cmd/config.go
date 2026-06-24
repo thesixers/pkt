@@ -2,9 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/genesix/pkt/internal/config"
+	"github.com/genesix/pkt/internal/db"
+	"github.com/genesix/pkt/internal/pm"
+	"github.com/genesix/pkt/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -15,17 +19,24 @@ var configCmd = &cobra.Command{
 
 Without arguments, displays current configuration.
 
+This command unifies both global settings and project-specific settings.
+
 Available keys:
   editor    - Editor command (e.g., code, cursor, vim)
-  pm        - Default package manager (pnpm, npm, bun)
+  pm        - Package manager (pnpm, npm, bun, uv, pip, poetry, go, cargo)
   ai        - Switch active AI provider
+
+For project-specific settings (like 'pm'), pkt will automatically update the current project 
+if you are inside a tracked folder. Use --global (-g) to force updating the global default instead.
 
 Examples:
   pkt config                    # Show current config
-  pkt config editor cursor      # Change editor to cursor
-  pkt config pm npm             # Change default PM to npm
-  pkt config ai ollama          # Switch to Ollama (local)`,
-	Args: cobra.MaximumNArgs(2),
+  pkt config editor cursor      # Change global editor to cursor
+  pkt config pm npm             # Change current project's package manager to npm
+  pkt config pm pnpm -g         # Change global default package manager to pnpm
+  pkt config ai ollama          # Switch global AI provider to ollama`,
+	Args:              cobra.MaximumNArgs(2),
+	ValidArgsFunction: completeConfigKeys,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
@@ -86,18 +97,77 @@ Examples:
 			fmt.Printf("✓ Editor set to: %s\n", value)
 
 		case "pm":
-			validPMs := map[string]bool{"pnpm": true, "npm": true, "bun": true}
-			if !validPMs[value] {
-				return fmt.Errorf("invalid package manager: %s\nSupported: pnpm, npm, bun", value)
+			pManager, err := pm.GetPM(value)
+			if err != nil {
+				return fmt.Errorf("invalid or unsupported package manager: %s", value)
 			}
-			if _, err := exec.LookPath(value); err != nil {
-				fmt.Printf("⚠️  Warning: '%s' is not installed\n", value)
+
+			isGlobal, _ := cmd.Flags().GetBool("global")
+
+			if isGlobal {
+				if _, err := exec.LookPath(value); err != nil {
+					fmt.Printf("⚠️  Warning: '%s' is not installed\n", value)
+				}
+				cfg.DefaultPM = value
+				if err := config.Save(cfg); err != nil {
+					return fmt.Errorf("failed to save config: %w", err)
+				}
+				fmt.Printf("✓ Global default package manager set to: %s\n", value)
+				return nil
 			}
-			cfg.DefaultPM = value
-			if err := config.Save(cfg); err != nil {
-				return fmt.Errorf("failed to save config: %w", err)
+
+			// Try to set for current project
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
 			}
-			fmt.Printf("✓ Default package manager set to: %s\n", value)
+			project, err := db.GetProjectByPath(cwd)
+			if err != nil {
+				// Not in a project, default to global implicitly
+				fmt.Printf("ℹ️  Not in a tracked project. Setting global default instead.\n")
+				if _, err := exec.LookPath(value); err != nil {
+					fmt.Printf("⚠️  Warning: '%s' is not installed\n", value)
+				}
+				cfg.DefaultPM = value
+				if err := config.Save(cfg); err != nil {
+					return fmt.Errorf("failed to save config: %w", err)
+				}
+				fmt.Printf("✓ Global default package manager set to: %s\n", value)
+				return nil
+			}
+
+			// In a tracked project! Update the project's PM
+			if project.PackageManager == value {
+				fmt.Printf("Project %s is already using %s\n", project.Name, value)
+				return nil
+			}
+
+			if pManager.Language() != project.Language {
+				return fmt.Errorf("cannot switch project language from %s to package manager %s", project.Language, value)
+			}
+
+			if err := db.UpdateProjectPM(project.ID, value); err != nil {
+				return fmt.Errorf("failed to update package manager: %w", err)
+			}
+
+			// If JavaScript, rewrite scripts
+			if project.Language == "javascript" {
+				if err := utils.RewriteScripts(project.Path, value); err != nil {
+					fmt.Printf("Warning: failed to rewrite scripts: %v\n", err)
+				}
+			}
+
+			// Re-sync dependencies
+			deps, err := utils.ParseDependencies(project.Path, project.Language)
+			if err != nil {
+				fmt.Printf("Warning: failed to sync dependencies: %v\n", err)
+			} else {
+				if err := db.SyncDependencies(project.ID, deps); err != nil {
+					fmt.Printf("Warning: failed to sync dependencies: %v\n", err)
+				}
+			}
+
+			fmt.Printf("✓ Updated package manager for project %s: %s → %s\n", project.Name, project.PackageManager, value)
 
 		case "projects_root":
 			return fmt.Errorf("projects_root cannot be changed after setup\nRecreate config with 'pkt start' if needed")
@@ -136,7 +206,8 @@ Local providers (no key needed, use --url to override default):
   pkt config set-ai ollama                        # uses http://localhost:11434
   pkt config set-ai ollama --url http://myserver:11434
   pkt config set-ai local  --url http://localhost:1234`,
-	Args: cobra.RangeArgs(1, 2),
+	Args:              cobra.RangeArgs(1, 2),
+	ValidArgsFunction: completeAIProviderArg,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		provider := args[0]
 		apiKey := ""
@@ -191,6 +262,13 @@ Examples:
   pkt config set-model ollama mistral
   pkt config set-model local  phi3`,
 	Args: cobra.ExactArgs(2),
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			return completeAIProviderArg(cmd, args, toComplete)
+		}
+		// Model names are free-form — no static completion
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		provider, model := args[0], args[1]
 
@@ -214,6 +292,7 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(configCmd)
+	configCmd.Flags().BoolP("global", "g", false, "Force setting global configuration")
 	configCmd.AddCommand(configSetAICmd)
 	configCmd.AddCommand(configSetModelCmd)
 	configSetAICmd.Flags().String("url", "", "Custom base URL for local/self-hosted providers")

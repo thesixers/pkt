@@ -16,7 +16,7 @@ func (g *GoMod) Language() string {
 func (g *GoMod) Add(workDir string, packages []string, dev bool) error {
 	// Go doesn't distinguish between dev and prod dependencies
 	for _, pkg := range packages {
-		if err := runCommand("go", []string{"get", pkg}, workDir); err != nil {
+		if err := runCommandInteractive("go", []string{"get", pkg}, workDir); err != nil {
 			return err
 		}
 	}
@@ -26,11 +26,11 @@ func (g *GoMod) Add(workDir string, packages []string, dev bool) error {
 func (g *GoMod) Remove(workDir string, packages []string) error {
 	// In Go, we remove by editing go.mod and running go mod tidy
 	// For now, just run go mod tidy after manual removal
-	return runCommand("go", []string{"mod", "tidy"}, workDir)
+	return runCommandInteractive("go", []string{"mod", "tidy"}, workDir)
 }
 
 func (g *GoMod) Install(workDir string) error {
-	return runCommand("go", []string{"mod", "download"}, workDir)
+	return runCommandInteractive("go", []string{"mod", "download"}, workDir)
 }
 
 func (g *GoMod) Init(workDir string) error {
@@ -59,14 +59,21 @@ func (g *GoMod) Run(workDir string, script string, args []string) error {
 	}
 }
 
+func (g *GoMod) RunFile(workDir string, target string, interpFlags []string, args []string) error {
+	cmdArgs := append([]string{"run"}, interpFlags...)
+	cmdArgs = append(cmdArgs, target)
+	cmdArgs = append(cmdArgs, args...)
+	return runCommandInteractive("go", cmdArgs, workDir)
+}
+
 func (g *GoMod) Update(workDir string, packages []string) error {
 	if len(packages) == 0 {
 		// Update all dependencies
-		return runCommand("go", []string{"get", "-u", "./..."}, workDir)
+		return runCommandInteractive("go", []string{"get", "-u", "./..."}, workDir)
 	}
 	// Update specific packages
 	for _, pkg := range packages {
-		if err := runCommand("go", []string{"get", "-u", pkg}, workDir); err != nil {
+		if err := runCommandInteractive("go", []string{"get", "-u", pkg}, workDir); err != nil {
 			return err
 		}
 	}

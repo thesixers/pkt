@@ -65,7 +65,9 @@ This must be run before using any other pkt commands.`,
 			fmt.Println("    [+] bun")
 		}
 		if !jsAvailable {
-			fmt.Println("    [-] No JavaScript tools found (install Node.js)")
+			fmt.Println("    [-] No JavaScript tools found.")
+			fmt.Println("        To install Node.js:  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash")
+			fmt.Println("        To install Bun:      curl -fsSL https://bun.sh/install | bash")
 		}
 
 		// Python
@@ -80,6 +82,7 @@ This must be run before using any other pkt commands.`,
 			fmt.Println("    [+] python")
 		} else {
 			fmt.Println("    [-] python not found")
+			fmt.Println("        To install on Linux/Mac: sudo apt install python3 / brew install python")
 		}
 		if pipAvailable {
 			fmt.Println("    [+] pip")
@@ -97,7 +100,8 @@ This must be run before using any other pkt commands.`,
 		if goAvailable {
 			fmt.Println("    [+] go")
 		} else {
-			fmt.Println("    [-] go not found (install from go.dev)")
+			fmt.Println("    [-] go not found")
+			fmt.Println("        Download it from: https://go.dev/doc/install")
 		}
 
 		// Rust
@@ -106,7 +110,8 @@ This must be run before using any other pkt commands.`,
 		if cargoAvailable {
 			fmt.Println("    [+] cargo")
 		} else {
-			fmt.Println("    [-] cargo not found (install from rustup.rs)")
+			fmt.Println("    [-] cargo not found")
+			fmt.Println("        Install it with: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh")
 		}
 
 		// Git (required for clone)

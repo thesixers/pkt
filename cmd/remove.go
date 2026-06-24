@@ -16,7 +16,8 @@ var removeCmd = &cobra.Command{
 	Short: "Remove dependencies from the current project",
 	Long: `Remove one or more dependencies from the current project using its package manager.
 Must be run inside a tracked project folder.`,
-	Args: cobra.MinimumNArgs(1),
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeDepsForCurrentProject,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		packages := args
 

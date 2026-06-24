@@ -15,6 +15,13 @@ var renameCmd = &cobra.Command{
 	Long: `Rename a project in pkt's registry and on disk.
 This updates both the project name in the database and renames the folder.`,
 	Args: cobra.ExactArgs(2),
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			return completeProjects(cmd, args, toComplete)
+		}
+		// Second arg is a free-form new name — no suggestions
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		oldName := args[0]
 		newName := args[1]

@@ -21,6 +21,7 @@ Examples:
   pkt update              # Update all dependencies
   pkt update lodash       # Update specific package
   pkt update axios react  # Update multiple packages`,
+	ValidArgsFunction: completeDepsForCurrentProject,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		packages := args
 

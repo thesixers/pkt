@@ -15,7 +15,8 @@ var depsCmd = &cobra.Command{
 	Short: "List dependencies for a project",
 	Long: `List all dependencies for a project.
 If no argument is provided, uses the current directory.`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeProjectOrDot,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var project *db.Project
 		var err error

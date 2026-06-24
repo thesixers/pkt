@@ -14,7 +14,8 @@ var deleteCmd = &cobra.Command{
 	Short: "Delete one or more projects",
 	Long: `Delete one or more project folders and remove them from the database.
 This action cannot be undone!`,
-	Args: cobra.MinimumNArgs(1),
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeProjects,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var projectsToDel []*db.Project
 		for _, input := range args {

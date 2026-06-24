@@ -16,7 +16,8 @@ var infoCmd = &cobra.Command{
 	Use:   "info <project | id>",
 	Short: "Display project information from its README or Release Notes",
 	Long:  "Parses the first few describing lines from a project's documentation file.",
-	Args:  cobra.ExactArgs(1),
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeProjects,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		input := args[0]
 
