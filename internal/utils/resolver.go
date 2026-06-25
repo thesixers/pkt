@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -88,4 +89,37 @@ func isULID(s string) bool {
 // GenerateID generates a new ULID for a project
 func GenerateID() string {
 	return strings.ToUpper(ulid.Make().String())
+}
+
+// ResolvePktPath takes a string like "@my-project/src/index.js" or "./local.txt"
+// and resolves it to a full absolute filesystem path.
+func ResolvePktPath(input string) (string, error) {
+	if !strings.HasPrefix(input, "@") {
+		// Standard file path
+		return filepath.Abs(input)
+	}
+
+	// It's a project path. Extract project name and relative path.
+	// Format: @project-name/rest/of/path
+	pathWithoutAt := input[1:]
+	
+	// Find the first separator
+	sepIdx := strings.IndexAny(pathWithoutAt, "/\\")
+	
+	var projectName, relativePath string
+	if sepIdx == -1 {
+		// Just @project-name
+		projectName = pathWithoutAt
+		relativePath = ""
+	} else {
+		projectName = pathWithoutAt[:sepIdx]
+		relativePath = pathWithoutAt[sepIdx+1:]
+	}
+
+	proj, err := ResolveProject(projectName)
+	if err != nil {
+		return "", fmt.Errorf("could not resolve project '%s' from path '%s': %w", projectName, input, err)
+	}
+
+	return filepath.Join(proj.Path, relativePath), nil
 }
