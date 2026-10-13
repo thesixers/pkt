@@ -1,6 +1,6 @@
 # Filesystem Routing
 
-`pkt` overrides standard OS filesystem commands (`cp` and `mv`) to introduce "Project Routing"—the ability to seamlessly mix absolute paths, relative paths, and abstract project names in a single command.
+`pkt` provides project-aware filesystem commands (`ls`, `cat`, `cp`, and `mv`) that seamlessly mix absolute paths, relative paths, and abstract project names in a single command.
 
 ---
 
@@ -18,7 +18,39 @@ This means you never have to type `../../backend-api/config.json` again.
 
 ---
 
-## 2. Copying Files (`pkt cp`)
+## 2. Listing Files (`pkt ls`)
+
+**Command:** `pkt ls [path]`
+
+Lists a normal filesystem path or a tracked-project path. `pkt ls @api/src` lists `src` inside the tracked project named `api`; `pkt ls api` lists a local folder named `api`.
+
+```bash
+pkt ls
+pkt ls -la @api
+pkt ls -r --sort modified @api/src
+```
+
+Useful flags: `-a` (include hidden entries), `-l` (permissions, size, and modification time), `-r` (recursive), `-d` (directories only), `-f` (files only), `--sort name|size|modified`, and `--reverse`.
+
+---
+
+## 3. Reading Files (`pkt cat`)
+
+**Command:** `pkt cat <file...>`
+
+Prints text files from ordinary paths or `@project/path` references. Directories are rejected with a suggestion to use `pkt ls`; binary files require `--force`.
+
+```bash
+pkt cat README.md
+pkt cat -n @api/src/main.go
+pkt cat --start 20 --end 50 @api/README.md
+```
+
+Useful flags: `-n` (line numbers), `--start`, `--end`, `--head`, `--tail`, `--no-header`, and `--force`.
+
+---
+
+## 4. Copying Files (`pkt cp`)
 
 **Command:** `pkt cp <source> <destination>`
 
@@ -43,7 +75,7 @@ pkt cp -r @legacy-app/data ./data
 
 ---
 
-## 3. Moving Files (`pkt mv`)
+## 5. Moving Files (`pkt mv`)
 
 **Command:** `pkt mv <source> <destination>`
 

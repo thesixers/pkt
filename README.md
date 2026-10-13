@@ -141,6 +141,62 @@ pkt compiles to a single binary with no external dependencies:
 | `pkt stats`                   | Show footprint analytics covering your root domains   |
 | `pkt status`                  | Display dynamic git uncommitted states deeply         |
 | `pkt clean`                   | Prune localized heavy `.venv` / `node_modules` caches |
+| `pkt ls [path]`               | List filesystem paths or `@project` paths              |
+| `pkt cat <file...>`           | Print text files from paths or `@project` paths        |
+
+### Filesystem Commands
+
+Both `pkt ls` and `pkt cat` accept ordinary paths **or** `@project` references.
+
+#### `pkt ls` — list files and directories
+
+```bash
+pkt ls                        # Current directory
+pkt ls ./src                  # Relative path
+pkt ls @api                   # Root of tracked project "api"
+pkt ls @api/src               # Subdirectory inside "api"
+pkt ls -la @api/src           # Long format + hidden files
+pkt ls -r --sort modified .   # Recursive, sorted by modification time
+pkt ls --reverse --sort size  # Largest files last
+pkt ls -f @api                # Files only
+pkt ls -d @api                # Directories only
+```
+
+| Flag | Description |
+|---|---|
+| `-a, --all` | Include hidden files and directories |
+| `-l, --long` | Show permissions, size, and modification time |
+| `-r, --recursive` | Walk subdirectories |
+| `-d, --dirs` | Directories only |
+| `-f, --files` | Files only |
+| `--sort <name\|size\|modified>` | Sort field (default: `name`) |
+| `--reverse` | Reverse the sort order |
+
+#### `pkt cat` — print text files
+
+```bash
+pkt cat README.md                           # Single file
+pkt cat @api/README.md                      # File inside tracked project
+pkt cat @api/src/main.go @web/package.json  # Multiple files with headers
+pkt cat -n @api/src/main.go                 # Show line numbers
+pkt cat --start 20 --end 50 @api/README.md  # Lines 20–50
+pkt cat --head 15 server.go                 # First 15 lines
+pkt cat --tail 20 app.log                   # Last 20 lines
+pkt cat --start 5 --head 10 main.go         # 10 lines starting at line 5
+pkt cat --force image.png                   # Force-print binary content
+```
+
+| Flag | Description |
+|---|---|
+| `-n, --number` | Show line numbers |
+| `--start <line>` | Start at a one-based line number |
+| `--end <line>` | Stop at a one-based line number (inclusive) |
+| `--head <N>` | First N lines (can combine with `--start`) |
+| `--tail <N>` | Last N lines (mutually exclusive with `--start`/`--end`/`--head`) |
+| `--no-header` | Suppress filename headers when printing multiple files |
+| `--force` | Print even if pkt detects binary content |
+
+> **Path safety:** `@project/../other` is always rejected to prevent escaping a project's root.
 
 ### Dependency Management
 

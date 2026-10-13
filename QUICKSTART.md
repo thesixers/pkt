@@ -80,6 +80,39 @@ pkt exec my-app ls   # run a command in another project's context
 
 ---
 
+## Filesystem Commands
+
+### Browse files with `pkt ls`
+
+```bash
+pkt ls                       # Current directory
+pkt ls ./src                 # Relative path
+pkt ls @api                  # Root of tracked project "api"
+pkt ls @api/src              # Subdirectory inside tracked project
+pkt ls -la @api/src          # Long format, include hidden files
+pkt ls -r --sort modified .  # Recursive, sorted by modification time
+pkt ls --reverse --sort size # Largest files last
+pkt ls -f @api               # Files only (no directories)
+pkt ls -d @api               # Directories only
+```
+
+### Read files with `pkt cat`
+
+```bash
+pkt cat README.md                        # Single file
+pkt cat @api/README.md                   # File inside tracked project
+pkt cat @api/src/main.go @web/package.json  # Multiple files (headers added)
+pkt cat -n @api/src/main.go              # Show line numbers
+pkt cat --start 20 --end 50 @api/README.md  # Lines 20–50
+pkt cat --head 15 server.go             # First 15 lines
+pkt cat --tail 20 app.log               # Last 20 lines
+pkt cat --start 5 --head 10 main.go     # 10 lines starting at line 5
+pkt cat --no-header a.txt b.txt         # Skip file separators
+pkt cat --force image.png               # Force-print binary content
+```
+
+---
+
 ## AI Commands
 
 ### Set up an AI provider first
@@ -141,6 +174,8 @@ pkt rename <project>   Rename a project
 pkt stats              Show workspace statistics
 pkt status             Show git status for all projects
 pkt clean              Prune node_modules / .venv caches
+pkt ls [path]          List files and directories
+pkt cat <file...>      Print text files
 
 pkt add <pkg>          Add dependency
 pkt remove <pkg>       Remove dependency

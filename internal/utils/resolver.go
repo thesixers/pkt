@@ -121,5 +121,19 @@ func ResolvePktPath(input string) (string, error) {
 		return "", fmt.Errorf("could not resolve project '%s' from path '%s': %w", projectName, input, err)
 	}
 
-	return filepath.Join(proj.Path, relativePath), nil
+	if relativePath == "" {
+		return filepath.Clean(proj.Path), nil
+	}
+
+	cleanRelativePath := filepath.Clean(relativePath)
+	if filepath.IsAbs(cleanRelativePath) || cleanRelativePath == ".." || strings.HasPrefix(cleanRelativePath, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("project path %q escapes the root of project %q", input, projectName)
+	}
+
+	resolved := filepath.Join(proj.Path, cleanRelativePath)
+	rel, err := filepath.Rel(proj.Path, resolved)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("project path %q escapes the root of project %q", input, projectName)
+	}
+	return resolved, nil
 }
