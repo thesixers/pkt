@@ -12,10 +12,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type infoFlags struct {
+	lang bool
+	pm   bool
+	path bool
+	docs bool
+	name bool
+	size bool
+	id   bool
+}
+
+var infoOpts infoFlags
+
 var infoCmd = &cobra.Command{
 	Use:   "info <project | id>",
-	Short: "Display project information from its README or Release Notes",
-	Long:  "Parses the first few describing lines from a project's documentation file.",
+	Short: "Display project information",
+	Long: `Display detailed information about a tracked project.
+
+With no flags the full info block is printed (name, ID, size, path, and README
+excerpt).  Use field flags to print a single value — useful for scripting:
+
+  pkt info my-api -l          # just the language
+  pkt info my-api --path      # just the absolute path
+  pkt info my-api --id        # just the project ID
+
+Multiple field flags may be combined; each value prints on its own line in the
+order: name, id, language, pm, path, size, docs.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeProjects,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -26,23 +48,62 @@ var infoCmd = &cobra.Command{
 			return err
 		}
 
-		sizeBytes, _ := utils.GetDirSize(project.Path)
-		sizeStr := humanize.Bytes(uint64(sizeBytes))
+		// Determine whether any field flag was set.
+		fieldMode := infoOpts.name || infoOpts.id || infoOpts.lang ||
+			infoOpts.pm || infoOpts.path || infoOpts.size || infoOpts.docs
 
-		fmt.Printf("\nProject Info: %s\n", project.Name)
-		fmt.Printf("ID: %s\n", project.ID)
-		fmt.Printf("Size: %s\n", sizeStr)
-		fmt.Printf("Path: %s\n", utils.ShortPath(project.Path))
-		fmt.Println(strings.Repeat("-", 40))
+		if !fieldMode {
+			// ── Full display (original behaviour) ──────────────────────────
+			sizeBytes, _ := utils.GetDirSize(project.Path)
+			sizeStr := humanize.Bytes(uint64(sizeBytes))
 
-		infoText := extractProjectInfo(project.Path)
-		if infoText == "" {
-			fmt.Println("<no readme info>")
-		} else {
-			fmt.Println(infoText)
+			fmt.Printf("\nProject Info: %s\n", project.Name)
+			fmt.Printf("ID:       %s\n", project.ID)
+			fmt.Printf("Language: %s\n", project.Language)
+			fmt.Printf("PM:       %s\n", project.PackageManager)
+			fmt.Printf("Size:     %s\n", sizeStr)
+			fmt.Printf("Path:     %s\n", utils.ShortPath(project.Path))
+			fmt.Println(strings.Repeat("-", 40))
+
+			infoText := extractProjectInfo(project.Path)
+			if infoText == "" {
+				fmt.Println("<no readme info>")
+			} else {
+				fmt.Println(infoText)
+			}
+			fmt.Println(strings.Repeat("-", 40))
+			return nil
 		}
 
-		fmt.Println(strings.Repeat("-", 40))
+		// ── Field mode: print only the requested fields, one per line ──────
+		// Evaluated in a canonical order so combined flags are predictable.
+		if infoOpts.name {
+			fmt.Println(project.Name)
+		}
+		if infoOpts.id {
+			fmt.Println(project.ID)
+		}
+		if infoOpts.lang {
+			fmt.Println(project.Language)
+		}
+		if infoOpts.pm {
+			fmt.Println(project.PackageManager)
+		}
+		if infoOpts.path {
+			fmt.Println(project.Path)
+		}
+		if infoOpts.size {
+			sizeBytes, _ := utils.GetDirSize(project.Path)
+			fmt.Println(humanize.Bytes(uint64(sizeBytes)))
+		}
+		if infoOpts.docs {
+			infoText := extractProjectInfo(project.Path)
+			if infoText == "" {
+				fmt.Println("<no readme info>")
+			} else {
+				fmt.Println(infoText)
+			}
+		}
 
 		return nil
 	},
@@ -130,8 +191,7 @@ func extractProjectInfo(projectPath string) string {
 				currentParaLength = 0
 			}
 
-			// Stop if we've accumulated 2 normal text paragraphs,
-			// or 1 paragraph that is fairly long
+			// Stop after 2 normal text paragraphs (or 1 long one)
 			if textParaCount >= 2 {
 				break
 			}
@@ -175,4 +235,12 @@ func prettifyMarkdown(text string) string {
 
 func init() {
 	rootCmd.AddCommand(infoCmd)
+
+	infoCmd.Flags().BoolVarP(&infoOpts.lang, "lang", "l", false, "Print the project language")
+	infoCmd.Flags().BoolVar(&infoOpts.pm, "pm", false, "Print the package manager")
+	infoCmd.Flags().BoolVarP(&infoOpts.path, "path", "p", false, "Print the absolute project path")
+	infoCmd.Flags().BoolVarP(&infoOpts.docs, "docs", "d", false, "Print the README excerpt")
+	infoCmd.Flags().BoolVarP(&infoOpts.name, "name", "n", false, "Print the project name")
+	infoCmd.Flags().BoolVarP(&infoOpts.size, "size", "s", false, "Print the project size on disk")
+	infoCmd.Flags().BoolVarP(&infoOpts.id, "id", "i", false, "Print the project ID")
 }
