@@ -1,8 +1,68 @@
-# pkt v1.2.0 Release Notes
+# pkt Release Notes
 
 ## About pkt
 
 **pkt (Project Kit)** is a cross-platform project manager and dependency tracker for JavaScript, Python, Go, and Rust projects. It organizes your projects, tracks dependencies, and abstracts package manager differences — all from a single, unified CLI.
+
+---
+
+## What's New in v1.3.0 (Filesystem Routing & Scriptability Upgrade)
+
+This major release introduces full **Project-Aware Filesystem Routing**, a powerful **Scriptable Project Introspection** engine, unified **Configuration & Language Migration**, and interactive CLI tooling.
+
+### 📁 Project-Aware Filesystem Routing (`@project`)
+
+No more calculating fragile relative paths (`../../`) or jumping across directories. `pkt` now treats tracked projects as first-class path destinations:
+
+- **The `@` Resolution Engine**: Prefix any path argument with `@<project-name>` (e.g., `@api/src/main.go` or `@frontend/config.json`) to automatically resolve paths against the project's root in the SQLite database.
+- **Path Traversal Security**: Strict directory traversal prevention blocks escape sequences (`@project/../other` is safely rejected).
+- **`pkt ls [path]`**:
+  - List files and directories across local paths or `@project` references.
+  - Granular control with `-a` (include hidden), `-l` (long listing with permissions, human-readable size, and modification timestamp), `-r` (recursive traversal), `-d` (directories only), and `-f` (files only).
+  - Flexible sorting: `--sort name|size|modified` with `--reverse`.
+- **`pkt cat <file...>`**:
+  - Print text files from standard filesystem paths or `@project` locations.
+  - Line slicing controls: `--start <line>`, `--end <line>`, `--head <N>`, and `--tail <N>`, plus `-n` for line numbering.
+  - Multi-file output with headers (`==> filename <==`) and `--no-header` suppression.
+  - Automatic binary content detection with safety refusal and `--force` override.
+- **`pkt cp <source> <destination>`**:
+  - Copy individual files or recursive directory trees across projects or between the local filesystem and tracked workspaces.
+  - Preserves exact file permissions (`os.FileMode`) and directory hierarchies.
+- **`pkt mv <source> <destination>`**:
+  - Move files or directories across projects with instant atomic OS-level renames.
+  - Intelligent cross-device link (`EXDEV`) fallback: seamlessly falls back to buffered copy and source deletion when moving across disk partitions or mount boundaries.
+
+### 🔍 Scriptable Project Introspection (`pkt info`)
+
+`pkt info` is now deeply composable with shell scripts, aliases, and CI/CD pipelines:
+
+- **Field Output Flags**: Extract single values without table borders or decorative formatting:
+  - `-l, --lang` — project language (e.g., `go`, `javascript`, `python`, `rust`)
+  - `--pm` — package manager (e.g., `go mod`, `pnpm`, `uv`, `cargo`)
+  - `-p, --path` — absolute filesystem path
+  - `-i, --id` — unique ULID
+  - `-s, --size` — human-readable disk footprint
+  - `-n, --name` — project name
+  - `-d, --docs` — parsed README / markdown documentation excerpt
+- **Predictable Canonical Order**: Combining multiple flags prints values in a deterministic, one-per-line sequence (`name`, `id`, `lang`, `pm`, `path`, `size`, `docs`).
+- **Enhanced Full Display**: Full `pkt info` now displays both `Language` and `PM` directly in the project overview header.
+
+### ⚙️ Language Management & Rebuild
+
+- **`pkt change lang <language> [project]`**: Change a project's language on the fly and automatically detect/select the best available package manager for that language.
+- **`pkt change rebuild [project]`**: Re-scan a project directory to automatically re-detect and synchronize its primary language and package manager in the database.
+
+### 🤖 Multi-Provider AI Registry & Agent Enhancements
+
+- **Universal Registry (`pkt config`)**: Inspect configured settings, global defaults, and all registered AI endpoints in a unified view.
+- **Local & Self-Hosted Providers**: First-class support for Ollama, LocalAI, vLLM, and custom endpoints via `pkt change ai add provider <name> --url <url>`.
+- **Agent Resilience**: Added 429 exponential backoff retries, sliding context window trimming, terminal markdown rendering, and enhanced tool calling.
+
+### 🚀 CLI Tooling & Safety
+
+- **`pkt upgrade`**: Automatic in-place self-updater checking GitHub releases.
+- **PM2-Style Tables**: Modern rounded ASCII tables for `pkt list` and `pkt outdated` via `go-pretty/table`.
+- **`pkt version`**: Native version reporting command.
 
 ---
 

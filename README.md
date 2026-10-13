@@ -7,6 +7,8 @@ A cross-platform project manager and dependency tracker for **JavaScript, Python
 ## Features
 
 - 🤖 **Autonomous AI Coding Agent** — Fully integrated conversational terminal agent (`pkt chat`) running native filesystem execution tools natively synced locally to Groq, Gemini, and OpenAI!
+- 📁 **Project-Aware Filesystem Engine** — Cross-project filesystem navigation and operations (`pkt ls`, `pkt cat`, `pkt cp`, `pkt mv`) with `@project` prefix routing, path traversal security, and cross-device move fallback
+- 🔍 **Scriptable Project Introspection** — Extract granular project metadata (`pkt info -l`, `--pm`, `-p`, `-n`, `-i`, `-s`, `-d`) for shell scripts, aliases, and automation pipelines
 - 🌐 **Multi-language support** — JavaScript, Python, Go, and Rust
 - 🗂️ **Centralized workspace** — All projects live in one configurable folder
 - 🔄 **Package manager agnostic** — Works with npm, pnpm, bun, pip, poetry, uv, cargo, and go mod
@@ -127,26 +129,38 @@ pkt compiles to a single binary with no external dependencies:
 
 ### Project Management
 
-| Command                       | Description                                           |
-| ----------------------------- | ----------------------------------------------------- |
-| `pkt create <name>`           | Create a new project in workspace                     |
-| `pkt create <name> -l <lang>` | Create project with specified language                |
-| `pkt init [path]`             | Initialize existing project (auto-detects language)   |
-| `pkt list`                    | List all tracked projects                             |
-| `pkt list -l <lang>`          | List projects filtered by language                    |
-| `pkt clone <url>`             | Clone repo and auto-track ⭐ NEW                      |
-| `pkt open <project>`          | Open project in configured editor                     |
-| `pkt delete <project>`        | Delete project from filesystem and database           |
-| `pkt rename <project>`        | Rename a tracked project                              |
-| `pkt stats`                   | Show footprint analytics covering your root domains   |
-| `pkt status`                  | Display dynamic git uncommitted states deeply         |
-| `pkt clean`                   | Prune localized heavy `.venv` / `node_modules` caches |
-| `pkt ls [path]`               | List filesystem paths or `@project` paths              |
-| `pkt cat <file...>`           | Print text files from paths or `@project` paths        |
+| Command                       | Description                                            |
+| ----------------------------- | ------------------------------------------------------ |
+| `pkt create <name>`           | Create a new project in workspace                      |
+| `pkt create <name> -l <lang>` | Create project with specified language                 |
+| `pkt init [path]`             | Initialize existing project (auto-detects language)    |
+| `pkt list`                    | List all tracked projects                              |
+| `pkt list -l <lang>`          | List projects filtered by language                     |
+| `pkt clone <url>`             | Clone repo and auto-track ⭐ NEW                       |
+| `pkt open <project>`          | Open project in configured editor                      |
+| `pkt delete <project>`        | Delete project from filesystem and database            |
+| `pkt rename <project>`        | Rename a tracked project                               |
+| `pkt info <project>`          | Display project details and docs (supports field flags) |
+| `pkt stats`                   | Show footprint analytics covering your root domains    |
+| `pkt status`                  | Display dynamic git uncommitted states deeply          |
+| `pkt clean`                   | Prune localized heavy `.venv` / `node_modules` caches  |
+| `pkt ls [path]`               | List filesystem paths or `@project` paths               |
+| `pkt cat <file...>`           | Print text files from paths or `@project` paths         |
+| `pkt cp <src> <dst>`          | Copy files or directories with `@project` routing      |
+| `pkt mv <src> <dst>`          | Move files or directories with `@project` routing      |
+| `pkt upgrade`                 | Self-update pkt to the latest GitHub release ⭐ NEW    |
+| `pkt version`                 | Print pkt version number                               |
 
 ### Filesystem Commands
 
-Both `pkt ls` and `pkt cat` accept ordinary paths **or** `@project` references.
+`pkt` provides project-aware filesystem commands (`ls`, `cat`, `cp`, and `mv`) that seamlessly accept standard filesystem paths **or** `@project` references.
+
+#### The `@` Project Prefix
+
+Prefixing any path with `@<project-name>` routes the operation directly to the tracked project root:
+- `@api` refers to the root directory of the project named `api`
+- `@api/src/main.go` refers to `src/main.go` inside the `api` project
+- Path traversal escapes (e.g., `@api/../secret`) are strictly rejected for safety
 
 #### `pkt ls` — list files and directories
 
@@ -183,6 +197,7 @@ pkt cat --start 20 --end 50 @api/README.md  # Lines 20–50
 pkt cat --head 15 server.go                 # First 15 lines
 pkt cat --tail 20 app.log                   # Last 20 lines
 pkt cat --start 5 --head 10 main.go         # 10 lines starting at line 5
+pkt cat --no-header a.txt b.txt             # Suppress headers between multiple files
 pkt cat --force image.png                   # Force-print binary content
 ```
 
@@ -196,7 +211,73 @@ pkt cat --force image.png                   # Force-print binary content
 | `--no-header` | Suppress filename headers when printing multiple files |
 | `--force` | Print even if pkt detects binary content |
 
+#### `pkt cp` — copy files and directories
+
+Copy files or directory trees across projects or between the local filesystem and tracked projects.
+
+```bash
+pkt cp @api-server/config.json @frontend/config.json  # Project to project
+pkt cp ./schema.sql @backend/migrations/              # Local file to project directory
+pkt cp -r @legacy-app/data ./data                     # Recursive copy to local folder
+```
+
+- **Files to files:** Byte-for-byte stream preserving file mode permissions.
+- **Files to directories:** Automatically appends the source filename so it lands inside the destination directory.
+- **Directories to directories:** Recursively recreates nested directory structures and copies all contents.
+
+#### `pkt mv` — move files and directories
+
+Move files or directories across projects or between the local filesystem and tracked projects.
+
+```bash
+pkt mv ./old-script.sh @scripts/bin/                  # Move local file into project
+pkt mv @api/v1 @api/legacy-v1                         # Move/rename inside project
+pkt mv @backend/shared.go @frontend/shared.go         # Move between projects
+```
+
+- **Atomic rename:** Instantaneous OS-level rename when source and destination reside on the same filesystem.
+- **Cross-device fallback:** Automatically falls back to a buffered copy followed by source removal when crossing disk partitions or mount points (`EXDEV`).
+
 > **Path safety:** `@project/../other` is always rejected to prevent escaping a project's root.
+
+### Project Information & Scripting
+
+#### `pkt info` — inspect project details
+
+Displays comprehensive metadata about a tracked project, including project ID, language, package manager, disk usage, absolute path, and a formatted README excerpt.
+
+```bash
+pkt info my-api               # Full project overview and documentation excerpt
+```
+
+**Field flags for scripting & automation:**
+
+When any field flag is provided, `pkt info` switches to field mode, printing only the requested values (one per line) in canonical order. Ideal for shell scripts, aliases, and CI/CD pipelines:
+
+```bash
+pkt info my-api -l            # Print language (e.g., "go")
+pkt info my-api --pm          # Print package manager (e.g., "go mod")
+pkt info my-api -p            # Print absolute path
+pkt info my-api -i            # Print project ID (ULID)
+pkt info my-api -s            # Print disk size (e.g., "12.4 MB")
+pkt info my-api -n            # Print project name
+pkt info my-api -d            # Print rendered README documentation excerpt
+
+# Scripting examples:
+LANG=$(pkt info my-api -l)
+PROJECT_DIR=$(pkt info my-api -p)
+pkt info my-api -n -l --pm    # Prints name, language, and PM on separate lines
+```
+
+| Flag | Description |
+|---|---|
+| `-n, --name` | Print project name |
+| `-i, --id` | Print unique project ID (ULID) |
+| `-l, --lang` | Print project language (`javascript`, `python`, `go`, `rust`) |
+| `--pm` | Print active package manager (`npm`, `pnpm`, `bun`, `pip`, `uv`, etc.) |
+| `-p, --path` | Print absolute project path on disk |
+| `-s, --size` | Print project disk footprint in human-readable units |
+| `-d, --docs` | Print formatted README documentation excerpt |
 
 ### Dependency Management
 
@@ -235,6 +316,8 @@ pkt cat --force image.png                   # Force-print binary content
 | `pkt change editor <cmd>`                                    | Change editor (e.g., code, cursor)                               |
 | `pkt change pm <pm>`                                         | Change current project's package manager                         |
 | `pkt change pm <pm> -l <lang> -g`                            | Change a language's default package manager                      |
+| `pkt change lang <lang> [project]`                           | Change a project's language and auto-select package manager ⭐ NEW |
+| `pkt change rebuild [project]`                               | Re-detect and rebuild language & package manager from disk ⭐ NEW|
 | `pkt change ai <provider>`                                   | Switch active AI provider                                        |
 | `pkt change root <path>`                                     | Set projects root for newly created or cloned projects           |
 | `pkt change ai add provider <name>`                          | Register a cloud or local provider                               |
@@ -248,6 +331,11 @@ pkt cat --force image.png                   # Force-print binary content
 **Examples:**
 
 ```bash
+# Language & Package Manager configuration
+pkt change lang go my-project      # Switch project to Go (auto-detects go mod)
+pkt change lang js                 # Change language for current directory's project
+pkt change rebuild my-project      # Re-scan directory and rebuild language/PM configuration
+
 # Cloud providers
 pkt change ai add provider groq
 pkt change ai add key sk-xxxx --provider groq
