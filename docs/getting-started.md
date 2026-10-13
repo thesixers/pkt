@@ -10,7 +10,7 @@ pkt start
 
 You'll be prompted for:
 - **Projects root folder** (default: `~/Documents/workspace`)
-- **Default package manager** (e.g., pnpm, npm, or bun)
+- **Automatically detected default package managers** for JavaScript, Python, Go, and Rust
 - **Editor command** (e.g., `code`, `vim`, `cursor`)
 
 This creates `~/.pkt/config.json` and initializes an embedded SQLite database to track your projects.

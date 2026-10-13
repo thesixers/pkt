@@ -26,12 +26,6 @@ var infoCmd = &cobra.Command{
 			return err
 		}
 
-		infoText := extractProjectInfo(project.Path)
-		if infoText == "" {
-			fmt.Println("No info for this project.")
-			return nil
-		}
-
 		sizeBytes, _ := utils.GetDirSize(project.Path)
 		sizeStr := humanize.Bytes(uint64(sizeBytes))
 
@@ -40,7 +34,14 @@ var infoCmd = &cobra.Command{
 		fmt.Printf("Size: %s\n", sizeStr)
 		fmt.Printf("Path: %s\n", utils.ShortPath(project.Path))
 		fmt.Println(strings.Repeat("-", 40))
-		fmt.Println(infoText)
+
+		infoText := extractProjectInfo(project.Path)
+		if infoText == "" {
+			fmt.Println("<no readme info>")
+		} else {
+			fmt.Println(infoText)
+		}
+
 		fmt.Println(strings.Repeat("-", 40))
 
 		return nil

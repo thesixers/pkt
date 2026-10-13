@@ -35,7 +35,11 @@ This must be run before using any other pkt commands.`,
 				fmt.Println("pkt is already initialized.")
 				fmt.Println("\nConfiguration:")
 				fmt.Printf("  Projects root: %s\n", cfg.ProjectsRoot)
-				fmt.Printf("  Default PM: %s\n", cfg.DefaultPM)
+				fmt.Println("  Default package managers:")
+				fmt.Printf("    JavaScript: %s\n", cfg.DefaultPMForLanguage("javascript"))
+				fmt.Printf("    Python:     %s\n", cfg.DefaultPMForLanguage("python"))
+				fmt.Printf("    Go:         %s\n", cfg.DefaultPMForLanguage("go"))
+				fmt.Printf("    Rust:       %s\n", cfg.DefaultPMForLanguage("rust"))
 				fmt.Printf("  Editor: %s\n", cfg.EditorCommand)
 				fmt.Println("\nConfig file: ~/.pkt/config.json")
 				fmt.Println("Database: ~/.pkt/pkt.db")
@@ -172,7 +176,6 @@ This must be run before using any other pkt commands.`,
 
 		// Prompt for configuration
 		var projectsRoot string
-		var defaultPM string
 		var editorCmd string
 
 		// Get home directory for default
@@ -208,31 +211,28 @@ This must be run before using any other pkt commands.`,
 		}
 		fmt.Printf("  Projects folder: %s\n", projectsRoot)
 
-		// Default package manager (from all available)
-		available := pm.ListAvailable()
-		if len(available) == 0 {
-			return fmt.Errorf("no package managers found")
-		}
-
-		// Determine best default
-		defaultPMOption := "npm"
+		// Detect per-language defaults. Setup stays lightweight: users can change
+		// any of these later with `pkt change pm <manager> -l <language> -g`.
+		javascriptPM := "npm"
 		if pnpmAvailable {
-			defaultPMOption = "pnpm"
+			javascriptPM = "pnpm"
 		} else if bunAvailable {
-			defaultPMOption = "bun"
-		} else if len(available) > 0 {
-			defaultPMOption = available[0]
+			javascriptPM = "bun"
 		}
-
-		promptPM := &survey.Select{
-			Message: "Default package manager (for JavaScript):",
-			Options: available,
-			Default: defaultPMOption,
+		pythonPM := "pip"
+		if uvAvailable {
+			pythonPM = "uv"
+		} else if poetryAvailable {
+			pythonPM = "poetry"
 		}
-		if err := survey.AskOne(promptPM, &defaultPM); err != nil {
-			return fmt.Errorf("cancelled: %w", err)
+		defaultPMs := map[string]string{
+			"javascript": javascriptPM,
+			"python":     pythonPM,
+			"go":         "go",
+			"rust":       "cargo",
 		}
-		fmt.Printf("  Default package manager: %s\n", defaultPM)
+		fmt.Println("  Default package managers:")
+		fmt.Printf("    JavaScript: %s\n    Python:     %s\n    Go:         go\n    Rust:       cargo\n", javascriptPM, pythonPM)
 
 		// Editor command
 		promptEditor := &survey.Input{
@@ -246,9 +246,9 @@ This must be run before using any other pkt commands.`,
 		// Verify editor command exists
 		editorAvailable := checkTool(editorCmd)
 		if !editorAvailable {
-			fmt.Printf("  [!] Warning: '%s' command not found. Update later with 'pkt config editor <cmd>'\n", editorCmd)
+			fmt.Printf("  [!] Warning: '%s' command not found. Update later with 'pkt change editor <cmd>'\n", editorCmd)
 		} else {
-		fmt.Printf("  Editor command: %s\n", editorCmd)
+			fmt.Printf("  Editor command: %s\n", editorCmd)
 		}
 
 		// Save configuration
@@ -256,7 +256,7 @@ This must be run before using any other pkt commands.`,
 
 		cfg := &config.Config{
 			ProjectsRoot:  projectsRoot,
-			DefaultPM:     defaultPM,
+			DefaultPMs:    defaultPMs,
 			EditorCommand: editorCmd,
 			Initialized:   true,
 		}

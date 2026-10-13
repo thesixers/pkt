@@ -18,7 +18,8 @@ Examples:
   pkt cp @api-server/config.json @frontend/config.json
   pkt cp ./local.txt @my-project/assets/
   pkt cp @legacy-app/data ./data`,
-	Args: cobra.ExactArgs(2),
+	Args:              cobra.ExactArgs(2),
+	ValidArgsFunction: completePktPath,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		srcPath, err := utils.ResolvePktPath(args[0])
 		if err != nil {

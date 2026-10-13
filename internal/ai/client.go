@@ -7,10 +7,57 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/genesix/pkt/internal/config"
 )
+
+var (
+	cooldownMu   sync.Mutex
+	keyCooldowns = make(map[string]time.Time)
+)
+
+func isKeyCooledDown(key string) bool {
+	cooldownMu.Lock()
+	defer cooldownMu.Unlock()
+	until, exists := keyCooldowns[key]
+	if !exists {
+		return false
+	}
+	if time.Now().After(until) {
+		delete(keyCooldowns, key)
+		return false
+	}
+	return true
+}
+
+func setKeyCooldown(key string, duration time.Duration) {
+	cooldownMu.Lock()
+	defer cooldownMu.Unlock()
+	keyCooldowns[key] = time.Now().Add(duration)
+}
+
+func getEarliestCooldown(keys []string) time.Duration {
+	cooldownMu.Lock()
+	defer cooldownMu.Unlock()
+	var earliest time.Time
+	now := time.Now()
+	for _, k := range keys {
+		until, exists := keyCooldowns[k]
+		if exists && until.After(now) {
+			if earliest.IsZero() || until.Before(earliest) {
+				earliest = until
+			}
+		}
+	}
+	if earliest.IsZero() {
+		return 0
+	}
+	return earliest.Sub(now)
+}
 
 type Tool struct {
 	Type     string       `json:"type"`
@@ -99,24 +146,29 @@ func SendMessages(messages []Message, preferredProvider string, tools []Tool) (*
 		providerName = strings.ToLower(preferredProvider)
 	}
 	if providerName == "" {
-		return nil, fmt.Errorf("no AI provider configured. Run 'pkt config ai <provider>'")
+		return nil, fmt.Errorf("no AI provider configured. Add one with 'pkt change ai add provider <provider>'")
 	}
 
 	// Resolve the provider config from the registry
-	pc := cfg.AIProviders[providerName]
-
-	// Determine base URL and default model
+	pc, exists := cfg.AIProviders[providerName]
 	defaults, known := builtinDefaults[providerName]
-	if !known && pc.BaseURL == "" {
-		return nil, fmt.Errorf("unknown provider '%s'. Use openai, groq, gemini, ollama, local, or register a custom one", providerName)
+	if !exists && !known {
+		return nil, fmt.Errorf("unknown provider '%s'. Use openai, groq, gemini, ollama, local, or register a custom one with 'pkt change ai add provider %s'", providerName, providerName)
 	}
 
 	baseURL := pc.BaseURL
-	if baseURL == "" {
+	if baseURL == "" && known {
 		baseURL = defaults[0]
 	}
+	if baseURL == "" {
+		return nil, fmt.Errorf("no base URL configured for provider '%s'", providerName)
+	}
 
-	model := pc.Model
+	// Determine model: pc.DefaultModel -> pc.Models[0] -> builtin default -> "default"
+	model := pc.DefaultModel
+	if model == "" && len(pc.Models) > 0 {
+		model = pc.Models[0]
+	}
 	if model == "" && known {
 		model = defaults[1]
 	}
@@ -124,10 +176,12 @@ func SendMessages(messages []Message, preferredProvider string, tools []Tool) (*
 		model = "default"
 	}
 
-	// Require API key only for non-local providers
-	apiKey := pc.APIKey
-	if apiKey == "" && !localProviders[providerName] {
-		return nil, fmt.Errorf("no API key set for '%s'. Run: pkt config set-ai %s <your-api-key>", providerName, providerName)
+	isLocal := localProviders[providerName]
+	keysToTry := pc.APIKeys
+	if isLocal && len(keysToTry) == 0 {
+		keysToTry = []string{""}
+	} else if !isLocal && len(keysToTry) == 0 {
+		return nil, fmt.Errorf("no API key set for '%s'. Add one with: pkt change ai add key <key> --provider %s", providerName, providerName)
 	}
 
 	reqBody := ChatCompletionRequest{
@@ -142,65 +196,107 @@ func SendMessages(messages []Message, preferredProvider string, tools []Tool) (*
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", baseURL, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return nil, err
+	// Prioritize keys not currently in cooldown
+	var orderedKeys []string
+	var cooledDownKeys []string
+	for _, k := range keysToTry {
+		if k == "" || !isKeyCooledDown(k) {
+			orderedKeys = append(orderedKeys, k)
+		} else {
+			cooledDownKeys = append(cooledDownKeys, k)
+		}
 	}
+	orderedKeys = append(orderedKeys, cooledDownKeys...)
 
-	req.Header.Set("Content-Type", "application/json")
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-
+	var lastErrStr string
 	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		errStr := string(bodyBytes)
-
-		// Self-heal Llama/Groq XML tool-calling hallucination
-		if strings.Contains(errStr, "failed_generation") {
-			type groqError struct {
-				Error struct {
-					FailedGeneration string `json:"failed_generation"`
-				} `json:"error"`
-			}
-			var ge groqError
-			if json.Unmarshal(bodyBytes, &ge) == nil && ge.Error.FailedGeneration != "" {
-				re := regexp.MustCompile(`<function=([a-zA-Z_0-9_]+)[^\{]*(\{.*\})`)
-				matches := re.FindStringSubmatch(ge.Error.FailedGeneration)
-				if len(matches) == 3 {
-					return &Message{
-						Role: "assistant",
-						ToolCalls: []ToolCall{{
-							ID:   "call_synthetic_groq_" + matches[1],
-							Type: "function",
-							Function: CallFunction{
-								Name:      matches[1],
-								Arguments: strings.TrimSpace(matches[2]),
-							},
-						}},
-					}, nil
-				}
-			}
+	for keyIdx, apiKey := range orderedKeys {
+		req, err := http.NewRequest("POST", baseURL, bytes.NewBuffer(jsonBody))
+		if err != nil {
+			return nil, err
 		}
 
-		return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, errStr)
+		req.Header.Set("Content-Type", "application/json")
+		if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+
+		if resp.StatusCode == http.StatusTooManyRequests || (resp.StatusCode != http.StatusOK && (strings.Contains(string(bodyBytes), "rate_limit") || strings.Contains(string(bodyBytes), "RESOURCE_EXHAUSTED") || strings.Contains(string(bodyBytes), "Rate limit"))) {
+			retrySec := 30
+			if ra := resp.Header.Get("Retry-After"); ra != "" {
+				if sec, err := strconv.Atoi(ra); err == nil && sec > 0 {
+					retrySec = sec
+				}
+			}
+			if apiKey != "" {
+				setKeyCooldown(apiKey, time.Duration(retrySec)*time.Second)
+			}
+			lastErrStr = string(bodyBytes)
+
+			if keyIdx < len(orderedKeys)-1 {
+				fmt.Printf("\033[33m⚠️ Key for '%s' rate limited (429). Failing over to next key...\033[0m\n", providerName)
+				continue
+			}
+			earliest := getEarliestCooldown(keysToTry)
+			return nil, fmt.Errorf("all %d API key(s) for '%s' are rate limited (429). Earliest retry in %s", len(keysToTry), providerName, earliest.Round(time.Second))
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			errStr := string(bodyBytes)
+
+			// Self-heal Llama/Groq XML tool-calling hallucination
+			if strings.Contains(errStr, "failed_generation") {
+				type groqError struct {
+					Error struct {
+						FailedGeneration string `json:"failed_generation"`
+					} `json:"error"`
+				}
+				var ge groqError
+				if json.Unmarshal(bodyBytes, &ge) == nil && ge.Error.FailedGeneration != "" {
+					re := regexp.MustCompile(`<function=([a-zA-Z_0-9_]+)[^\{]*(\{.*\})`)
+					matches := re.FindStringSubmatch(ge.Error.FailedGeneration)
+					if len(matches) == 3 {
+						return &Message{
+							Role: "assistant",
+							ToolCalls: []ToolCall{{
+								ID:   "call_synthetic_groq_" + matches[1],
+								Type: "function",
+								Function: CallFunction{
+									Name:      matches[1],
+									Arguments: strings.TrimSpace(matches[2]),
+								},
+							}},
+						}, nil
+					}
+				}
+			}
+
+			return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, errStr)
+		}
+
+		var parsedResp ChatCompletionResponse
+		if err := json.Unmarshal(bodyBytes, &parsedResp); err != nil {
+			return nil, err
+		}
+
+		if len(parsedResp.Choices) == 0 {
+			return nil, fmt.Errorf("no response from AI")
+		}
+
+		return &parsedResp.Choices[0].Message, nil
 	}
 
-	var parsedResp ChatCompletionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&parsedResp); err != nil {
-		return nil, err
+	if lastErrStr != "" {
+		return nil, fmt.Errorf("API rate limit error: %s", lastErrStr)
 	}
-
-	if len(parsedResp.Choices) == 0 {
-		return nil, fmt.Errorf("no response from AI")
-	}
-
-	return &parsedResp.Choices[0].Message, nil
+	return nil, fmt.Errorf("no available keys")
 }

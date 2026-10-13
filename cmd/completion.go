@@ -8,6 +8,7 @@ import (
 
 	"github.com/genesix/pkt/internal/config"
 	"github.com/genesix/pkt/internal/db"
+	"github.com/genesix/pkt/internal/lang"
 	"github.com/genesix/pkt/internal/pm"
 	"github.com/spf13/cobra"
 )
@@ -113,19 +114,29 @@ func parsePackageJSONScripts(projectPath string) []string {
 }
 
 // completeConfigKeys completes config key names and their allowed values.
-func completeConfigKeys(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func completeConfigKeys(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) == 0 {
-		return completionFilter([]string{"editor", "pm", "ai"}, toComplete), cobra.ShellCompDirectiveNoFileComp
+		return completionFilter([]string{"editor", "pm", "root", "lang", "language", "rebuild"}, toComplete), cobra.ShellCompDirectiveNoFileComp
 	}
 	if len(args) == 1 {
 		switch args[0] {
 		case "pm":
 			return completionFilter(pm.ListAvailable(), toComplete), cobra.ShellCompDirectiveNoFileComp
-		case "ai":
-			return completionFilter(knownAIProviders(), toComplete), cobra.ShellCompDirectiveNoFileComp
+		case "lang", "language":
+			allLangs := append(lang.ListShort(), lang.List()...)
+			return completionFilter(allLangs, toComplete), cobra.ShellCompDirectiveNoFileComp
+		case "rebuild":
+			return completeProjects(cmd, args, toComplete)
 		case "editor":
-			// Fall back to PATH-based completion for editor binary names
 			return nil, cobra.ShellCompDirectiveDefault
+		case "root":
+			return nil, cobra.ShellCompDirectiveDefault
+		}
+	}
+	if len(args) == 2 {
+		switch args[0] {
+		case "lang", "language":
+			return completeProjects(cmd, args, toComplete)
 		}
 	}
 	return nil, cobra.ShellCompDirectiveNoFileComp
@@ -139,7 +150,100 @@ func completeAIProviderArg(_ *cobra.Command, args []string, toComplete string) (
 	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
+// completePktPath completes @project/path arguments for pkt cp and pkt mv.
+//
+// NOTE ON BASH WORD-SPLITTING: bash treats '@' as a word boundary, so when
+// the user types "pkt cp @<TAB>" the shell passes toComplete="" (empty string),
+// not "@". We handle all three cases:
+//  1. toComplete is "" or doesn't start with "@" → offer all @project/ names
+//     (the @ prefix itself is included in each suggestion) AND allow file comp.
+//  2. toComplete starts with "@" but has no "/" → filter project names by prefix.
+//  3. toComplete is "@project/sub…" → enumerate files inside the project root.
+func completePktPath(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	// Case 1: empty token or plain path — bash gave us "" after the "@" word break.
+	// Emit all @project/ names so they appear alongside normal file completions.
+	if toComplete == "" || (!strings.HasPrefix(toComplete, "@") && !strings.Contains(toComplete, "/")) {
+		projects, err := db.ListAllProjects()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveDefault
+		}
+		var completions []string
+		for _, p := range projects {
+			if strings.HasPrefix(strings.ToLower(p.Name), strings.ToLower(toComplete)) {
+				completions = append(completions, "@"+p.Name+"/")
+			}
+		}
+		// Return @project/ suggestions alongside normal filesystem completion.
+		return completions, cobra.ShellCompDirectiveNoSpace
+	}
 
+	// Strip the leading "@".
+	withoutAt := toComplete[1:]
+
+	// Case 2: "@partial" — still completing the project name portion.
+	sepIdx := strings.Index(withoutAt, "/")
+	if sepIdx == -1 {
+		projects, err := db.ListAllProjects()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		var completions []string
+		for _, p := range projects {
+			if strings.HasPrefix(strings.ToLower(p.Name), strings.ToLower(withoutAt)) {
+				completions = append(completions, "@"+p.Name+"/")
+			}
+		}
+		return completions, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
+	}
+
+	// Case 3: "@project/sub…" — enumerate files inside the resolved project root.
+	projectName := withoutAt[:sepIdx]
+	subPath := withoutAt[sepIdx+1:]
+
+	projects, err := db.ListAllProjects()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var projectRoot string
+	for _, p := range projects {
+		if strings.EqualFold(p.Name, projectName) {
+			projectRoot = p.Path
+			break
+		}
+	}
+	if projectRoot == "" {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	// Determine which directory to list and which basename prefix to match.
+	searchDir := filepath.Join(projectRoot, filepath.Dir(subPath))
+	basePart := filepath.Base(subPath)
+	if subPath == "" || strings.HasSuffix(subPath, "/") {
+		basePart = ""
+		searchDir = filepath.Join(projectRoot, subPath)
+	}
+
+	entries, err := os.ReadDir(searchDir)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var completions []string
+	for _, e := range entries {
+		if basePart != "" && !strings.HasPrefix(strings.ToLower(e.Name()), strings.ToLower(basePart)) {
+			continue
+		}
+		relToRoot, _ := filepath.Rel(projectRoot, filepath.Join(searchDir, e.Name()))
+		token := "@" + projectName + "/" + relToRoot
+		if e.IsDir() {
+			token += "/"
+		}
+		completions = append(completions, token)
+	}
+
+	return completions, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
+}
 
 // completeLangFlag completes language short-code values for --lang flags.
 func completeLangFlag(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {

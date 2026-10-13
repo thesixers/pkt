@@ -8,7 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var chatProvider string
+var (
+	chatProvider string
+	chatModel    string
+)
 
 var chatCmd = &cobra.Command{
 	Use:   "chat",
@@ -22,11 +25,12 @@ var chatCmd = &cobra.Command{
 				info = info[:1500] + "..."
 			}
 		}
-		return ai.StartChatSession(chatProvider, info)
+		return ai.StartChatSession(chatProvider, chatModel, info)
 	},
 }
 
 func init() {
 	chatCmd.Flags().StringVarP(&chatProvider, "provider", "p", "", "Specific AI Provider to use (openai, gemini, groq)")
+	chatCmd.Flags().StringVarP(&chatModel, "model", "m", "", "Specific AI Model to use")
 	rootCmd.AddCommand(chatCmd)
 }

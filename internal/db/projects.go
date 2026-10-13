@@ -250,6 +250,30 @@ func UpdateProjectPM(id, pm string) error {
 	return nil
 }
 
+// UpdateProjectLang updates the language and package manager for a project
+func UpdateProjectLang(id, language, pm string) error {
+	if DB == nil {
+		return fmt.Errorf("database not connected")
+	}
+
+	query := `UPDATE projects SET language = ?, package_manager = ? WHERE id = ?`
+	result, err := DB.Exec(query, language, pm, id)
+	if err != nil {
+		return fmt.Errorf("failed to update project language: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("project not found")
+	}
+
+	return nil
+}
+
 // RenameProject updates the name of a project
 func RenameProject(id, newName string) error {
 	if DB == nil {

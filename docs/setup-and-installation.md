@@ -37,7 +37,7 @@ sudo make install # Moves the binary to /usr/local/bin
 You must run `pkt start` before using any other commands. This initializes the global configuration and provisions the embedded SQLite database.
 
 **What it does:**
-1. **Interactive Prompt**: It asks for your primary workspace folder (default: `~/Documents/workspace`), your preferred default JavaScript package manager (`npm`, `pnpm`, `bun`), and your default terminal editor (`code`, `vim`, `cursor`).
+1. **Interactive Prompt**: It asks for your primary workspace folder (default: `~/Documents/workspace`) and terminal editor (`code`, `vim`, `cursor`). It detects a default package manager for each supported language automatically.
 2. **Database Provisioning**: It creates the `~/.pkt/` directory and initializes `pkt2.db`.
 3. **Runtime Auditing**: It actively scans your system `$PATH` for required and optional runtimes (Node.js, Go, Python, Rust, Cargo, Bun, pnpm, uv, poetry).
 4. **Onboarding**: If you are missing a critical runtime, it halts the setup and provides a precise, OS-specific copy-paste snippet (e.g., `curl -fsSL https://bun.sh/install | bash`) to install the missing tool immediately.

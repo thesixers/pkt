@@ -17,7 +17,8 @@ var mvCmd = &cobra.Command{
 Examples:
   pkt mv @api-server/old.json @frontend/new.json
   pkt mv ./local.txt @my-project/assets/`,
-	Args: cobra.ExactArgs(2),
+	Args:              cobra.ExactArgs(2),
+	ValidArgsFunction: completePktPath,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		srcPath, err := utils.ResolvePktPath(args[0])
 		if err != nil {

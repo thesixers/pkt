@@ -1,10 +1,18 @@
 package pm
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 )
+
+const defaultCommandTimeout = 5 * time.Minute
+
+// commandTimeout bounds external package-manager processes. Integration tests
+// temporarily reduce it so a stalled registry request cannot block the suite.
+var commandTimeout = defaultCommandTimeout
 
 // PackageManager defines the interface for package manager operations
 type PackageManager interface {
@@ -131,9 +139,15 @@ func InstallPnpm() error {
 		return fmt.Errorf("npm is required to install pnpm")
 	}
 
-	cmd := exec.Command("npm", "install", "-g", "pnpm")
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "npm", "install", "-g", "pnpm")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("npm install -g pnpm timed out after %s", commandTimeout)
+		}
 		return fmt.Errorf("failed to install pnpm: %w\nOutput: %s", err, string(output))
 	}
 
@@ -142,10 +156,16 @@ func InstallPnpm() error {
 
 // runCommand is a helper to run commands
 func runCommand(name string, args []string, workDir string) error {
-	cmd := exec.Command(name, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = workDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("%s %v timed out after %s", name, args, commandTimeout)
+		}
 		return fmt.Errorf("command failed: %w\nOutput: %s", err, string(output))
 	}
 	return nil
@@ -153,10 +173,19 @@ func runCommand(name string, args []string, workDir string) error {
 
 // runCommandInteractive runs a command with stdout/stderr connected to terminal
 func runCommandInteractive(name string, args []string, workDir string) error {
-	cmd := exec.Command(name, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = workDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("%s %v timed out after %s", name, args, commandTimeout)
+		}
+		return err
+	}
+	return nil
 }

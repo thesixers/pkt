@@ -16,7 +16,7 @@ func TestConfigSaveAndLoad(t *testing.T) {
 
 	cfg := &Config{
 		ProjectsRoot:  "/tmp/workspace",
-		DefaultPM:     "pnpm",
+		DefaultPMs:    map[string]string{"javascript": "pnpm", "python": "uv", "go": "go", "rust": "cargo"},
 		EditorCommand: "vim",
 		Initialized:   true,
 	}
@@ -32,7 +32,7 @@ func TestConfigSaveAndLoad(t *testing.T) {
 func TestConfigJSONSerialization(t *testing.T) {
 	cfg := &Config{
 		ProjectsRoot:  "/home/user/projects",
-		DefaultPM:     "npm",
+		DefaultPMs:    map[string]string{"javascript": "npm", "python": "uv", "go": "go", "rust": "cargo"},
 		EditorCommand: "code",
 		Initialized:   true,
 	}
@@ -51,8 +51,8 @@ func TestConfigJSONSerialization(t *testing.T) {
 	if loaded.ProjectsRoot != cfg.ProjectsRoot {
 		t.Errorf("ProjectsRoot mismatch: got %s, want %s", loaded.ProjectsRoot, cfg.ProjectsRoot)
 	}
-	if loaded.DefaultPM != cfg.DefaultPM {
-		t.Errorf("DefaultPM mismatch: got %s, want %s", loaded.DefaultPM, cfg.DefaultPM)
+	if loaded.DefaultPMForLanguage("javascript") != cfg.DefaultPMForLanguage("javascript") {
+		t.Errorf("JavaScript default mismatch: got %s, want %s", loaded.DefaultPMForLanguage("javascript"), cfg.DefaultPMForLanguage("javascript"))
 	}
 	if loaded.EditorCommand != cfg.EditorCommand {
 		t.Errorf("EditorCommand mismatch: got %s, want %s", loaded.EditorCommand, cfg.EditorCommand)
@@ -87,7 +87,7 @@ func TestConfigFileOperations(t *testing.T) {
 
 	cfg := &Config{
 		ProjectsRoot:  "/home/test/projects",
-		DefaultPM:     "bun",
+		DefaultPMs:    map[string]string{"javascript": "bun", "python": "uv", "go": "go", "rust": "cargo"},
 		EditorCommand: "nano",
 		Initialized:   true,
 	}
@@ -116,8 +116,8 @@ func TestConfigFileOperations(t *testing.T) {
 		t.Fatalf("Failed to parse config file: %v", err)
 	}
 
-	if loaded.DefaultPM != "bun" {
-		t.Errorf("Expected DefaultPM 'bun', got '%s'", loaded.DefaultPM)
+	if loaded.DefaultPMForLanguage("javascript") != "bun" {
+		t.Errorf("Expected JavaScript default 'bun', got '%s'", loaded.DefaultPMForLanguage("javascript"))
 	}
 }
 
@@ -151,22 +151,169 @@ func TestLegacyMigration(t *testing.T) {
 		AIProviders: map[string]ProviderConfig{},
 	}
 
-	// Replicate the Load() migration logic
-	for name, key := range cfg.AIKeys {
-		if _, exists := cfg.AIProviders[name]; !exists {
-			pc := cfg.AIProviders[name]
-			pc.APIKey = key
-			if m, ok := cfg.AIModels[name]; ok {
-				pc.Model = m
-			}
-			cfg.AIProviders[name] = pc
-		}
+	tmpDir, err := os.MkdirTemp("", "pkt-test-migrate")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	cfgPath := filepath.Join(tmpDir, "config.json")
+	data, _ := json.Marshal(cfg)
+	_ = os.WriteFile(cfgPath, data, 0644)
+
+	t.Setenv("PKT_CONFIG_PATH", cfgPath)
+
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
 	}
 
-	if cfg.AIProviders["groq"].APIKey != "sk-legacy-key" {
-		t.Errorf("Migration failed: expected 'sk-legacy-key', got '%s'", cfg.AIProviders["groq"].APIKey)
+	groq := loaded.AIProviders["groq"]
+	if len(groq.APIKeys) != 1 || groq.APIKeys[0] != "sk-legacy-key" {
+		t.Errorf("Migration failed: expected ['sk-legacy-key'], got %v", groq.APIKeys)
 	}
-	if cfg.AIProviders["groq"].Model != "llama-3.1-8b-instant" {
-		t.Errorf("Migration failed: expected model 'llama-3.1-8b-instant', got '%s'", cfg.AIProviders["groq"].Model)
+	if groq.DefaultModel != "llama-3.1-8b-instant" {
+		t.Errorf("Migration failed: expected default model 'llama-3.1-8b-instant', got '%s'", groq.DefaultModel)
+	}
+	if len(groq.Models) != 1 || groq.Models[0] != "llama-3.1-8b-instant" {
+		t.Errorf("Migration failed: expected models ['llama-3.1-8b-instant'], got %v", groq.Models)
+	}
+}
+
+func TestLegacyDefaultPMMigration(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+	t.Setenv("PKT_CONFIG_PATH", configPath)
+
+	legacy := []byte(`{"projects_root":"/tmp/projects","default_pm":"bun","initialized":true}`)
+	if err := os.WriteFile(configPath, legacy, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DefaultPMForLanguage("javascript") != "bun" {
+		t.Fatalf("expected legacy default_pm to migrate to JavaScript, got %q", cfg.DefaultPMForLanguage("javascript"))
+	}
+	if cfg.DefaultPMForLanguage("python") != "uv" || cfg.DefaultPMForLanguage("go") != "go" || cfg.DefaultPMForLanguage("rust") != "cargo" {
+		t.Fatalf("expected defaults for every language, got %#v", cfg.DefaultPMs)
+	}
+
+	persisted, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(persisted) == string(legacy) || string(persisted) == "" {
+		t.Fatal("expected migrated configuration to be persisted")
+	}
+}
+
+func TestMaskKey(t *testing.T) {
+	if got := MaskKey("short"); got != "••••••••" {
+		t.Errorf("Expected '••••••••', got '%s'", got)
+	}
+	if got := MaskKey("12345678"); got != "••••••••" {
+		t.Errorf("Expected '••••••••', got '%s'", got)
+	}
+	if got := MaskKey("gsk-1234567890abcdef"); got != "gsk-••••cdef" {
+		t.Errorf("Expected 'gsk-••••cdef', got '%s'", got)
+	}
+}
+
+func TestAIProviderKeyModelOperations(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "pkt-test-ai-ops")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	cfgPath := filepath.Join(tmpDir, "config.json")
+	t.Setenv("PKT_CONFIG_PATH", cfgPath)
+
+	cfg := &Config{
+		AIProviders: make(map[string]ProviderConfig),
+	}
+	if err := Save(cfg); err != nil {
+		t.Fatalf("Failed to save initial config: %v", err)
+	}
+
+	// 1. Adding key or model before provider is configured should fail with exact error message
+	err = cfg.AddKey("groq", "gsk-key-1")
+	if err == nil {
+		t.Fatalf("Expected error adding key to non-existent provider")
+	}
+	expectedErr := "Provider \"groq\" is not configured. Add it first with:\npkt change ai add provider groq"
+	if err.Error() != expectedErr {
+		t.Errorf("Expected error '%s', got '%s'", expectedErr, err.Error())
+	}
+
+	// 2. Add provider
+	isNew, err := cfg.AddProvider("groq", "")
+	if err != nil || !isNew {
+		t.Fatalf("AddProvider failed: %v", err)
+	}
+	if cfg.AIProvider != "groq" {
+		t.Errorf("First provider added should be default: got '%s'", cfg.AIProvider)
+	}
+
+	// 3. Add keys
+	if err := cfg.AddKey("groq", "gsk-key-1"); err != nil {
+		t.Fatalf("AddKey failed: %v", err)
+	}
+	if err := cfg.AddKey("groq", "gsk-key-2"); err != nil {
+		t.Fatalf("AddKey 2 failed: %v", err)
+	}
+	if len(cfg.AIProviders["groq"].APIKeys) != 2 {
+		t.Fatalf("Expected 2 keys, got %d", len(cfg.AIProviders["groq"].APIKeys))
+	}
+
+	// 4. Add models
+	if err := cfg.AddModel("groq", "llama-3.3-70b-versatile"); err != nil {
+		t.Fatalf("AddModel failed: %v", err)
+	}
+	if cfg.AIProviders["groq"].DefaultModel != "llama-3.3-70b-versatile" {
+		t.Errorf("First model added should be default model: got '%s'", cfg.AIProviders["groq"].DefaultModel)
+	}
+	if err := cfg.AddModel("groq", "llama-3.1-8b-instant"); err != nil {
+		t.Fatalf("AddModel 2 failed: %v", err)
+	}
+	// Default model should remain the first model
+	if cfg.AIProviders["groq"].DefaultModel != "llama-3.3-70b-versatile" {
+		t.Errorf("Default model changed unexpectedly: got '%s'", cfg.AIProviders["groq"].DefaultModel)
+	}
+
+	// 5. Set default model
+	if err := cfg.SetDefaultModel("groq", "llama-3.1-8b-instant"); err != nil {
+		t.Fatalf("SetDefaultModel failed: %v", err)
+	}
+	if cfg.AIProviders["groq"].DefaultModel != "llama-3.1-8b-instant" {
+		t.Errorf("Expected default model 'llama-3.1-8b-instant', got '%s'", cfg.AIProviders["groq"].DefaultModel)
+	}
+
+	// 6. Remove key
+	if err := cfg.RemoveKey("groq", "gsk-key-1"); err != nil {
+		t.Fatalf("RemoveKey failed: %v", err)
+	}
+	if len(cfg.AIProviders["groq"].APIKeys) != 1 || cfg.AIProviders["groq"].APIKeys[0] != "gsk-key-2" {
+		t.Errorf("Expected remaining key 'gsk-key-2', got %v", cfg.AIProviders["groq"].APIKeys)
+	}
+
+	// 7. Remove model
+	if err := cfg.RemoveModel("groq", "llama-3.1-8b-instant"); err != nil {
+		t.Fatalf("RemoveModel failed: %v", err)
+	}
+	// Default model should fall back to first remaining model
+	if cfg.AIProviders["groq"].DefaultModel != "llama-3.3-70b-versatile" {
+		t.Errorf("Expected default model to fall back, got '%s'", cfg.AIProviders["groq"].DefaultModel)
+	}
+
+	// 8. Remove provider
+	if err := cfg.RemoveProvider("groq"); err != nil {
+		t.Fatalf("RemoveProvider failed: %v", err)
+	}
+	if cfg.AIProvider != "" {
+		t.Errorf("Expected empty active AIProvider, got '%s'", cfg.AIProvider)
 	}
 }

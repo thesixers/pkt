@@ -12,7 +12,12 @@ This JSON file acts as the source of truth for your entire workspace environment
 ```json
 {
   "projects_root": "~/Documents/workspace",
-  "default_pm": "pnpm",
+  "default_pms": {
+    "javascript": "pnpm",
+    "python": "uv",
+    "go": "go",
+    "rust": "cargo"
+  },
   "editor": "code",
   "initialized": true,
   "ai": {
@@ -30,61 +35,85 @@ This JSON file acts as the source of truth for your entire workspace environment
 
 ---
 
-## 2. Modifying Configuration (`pkt config`)
+## 2. Viewing and Modifying Configuration
 
-**Command:** `pkt config [subcommand]`
+**View:** `pkt config`
 
-If you run `pkt config` with no arguments, it prints a stylized readout of your entire active configuration, including all registered AI providers.
+`pkt config` is read-only: it prints your active configuration and all registered AI providers.
+
+**Change:** `pkt change <key> <value>`
 
 ### Core Settings
-- `pkt config editor <cmd>`: Sets the binary to execute when you run `pkt open`. Valid inputs: `code`, `cursor`, `vim`, `nano`, `goland`, etc.
-- `pkt config pm <pm>`: Changes the global default package manager used when you run `pkt create` for a JavaScript project.
+- `pkt change editor <cmd>`: Sets the binary to execute when you run `pkt open`. Valid inputs: `code`, `cursor`, `vim`, `nano`, `goland`, etc.
+- `pkt change pm <pm>`: Changes the package manager for the current tracked project.
+- `pkt change pm <pm> -l <lang> -g`: Changes the default package manager for future projects of a language. Languages accept `js`, `py`, `go`, and `rs`.
+- `pkt change ai <provider>`: Selects the active AI provider.
+- `pkt change root <path>`: Sets the projects root used for future `pkt create` and `pkt clone` commands. The path is normalized to an absolute path and created if it does not exist.
+
+Changing the projects root does not move existing projects or rewrite their database records; tracked projects retain their current locations.
 
 ### Project Overrides (The `--global` Flag)
-When you run a command like `pkt config pm npm`:
-- **Inside a tracked project**: It strictly updates the SQLite database record for *that specific project* to use `npm`.
-- **With the `--global` flag** (`pkt config pm npm -g`): It updates your `~/.pkt/config.json` so all future projects default to `npm`.
+When you run a command like `pkt change pm npm`:
+- **Inside a tracked project**: It updates that project's package manager.
+- **Outside a tracked project**: pkt asks which language default should change unless you provide `-l`.
+- **With the `--global` flag** (`pkt change pm npm -l js -g`): It updates the selected language default even when you are inside a project.
 
 ---
 
 ## 3. AI Provider Registry
 
-The AI integration supports multiple providers simultaneously, allowing you to seamlessly hot-swap between models depending on your needs.
+The AI integration supports multiple providers, API keys, and models simultaneously.
 
 ### Adding Cloud Providers (API Keys Required)
-**Command:** `pkt config set-ai <provider> <api-key>`
 
-To use OpenAI, Groq, or Gemini, you must provide an API key.
 ```bash
-pkt config set-ai groq sk-123456789
+pkt change ai add provider groq
+pkt change ai add key sk-123456789 --provider groq
 ```
 
 ### Adding Local Providers (No Keys Required)
-**Command:** `pkt config set-ai <provider>`
 
-If you are running a local model engine (like `ollama`), you can register it without a key.
+If you are running a local model engine (like `ollama`), register it without a key.
 ```bash
-pkt config set-ai ollama
+pkt change ai add provider ollama
 ```
 
 ### Custom Endpoints & Self-Hosted Models
-**Command:** `pkt config set-ai <provider> --url <endpoint>`
 
-If you are hosting your own inference server (e.g., vLLM or LM Studio), you can point `pkt` to your custom URL.
 ```bash
-pkt config set-ai my-server --url http://192.168.1.100:1234/v1
+pkt change ai add provider my-server --url http://192.168.1.100:1234/v1
 ```
 
-### Pinning Models and Hot-Swapping
-**Command:** `pkt config set-model <provider> <model>`
+### Adding and Pinning Models
 
-Most providers (like Groq) have multiple models available. You can pin a specific model to the provider.
 ```bash
-pkt config set-model groq llama-3.1-8b-instant
+pkt change ai add model llama-3.1-8b-instant --provider groq
+pkt change ai add model llama-3.3-70b-versatile --provider groq
 ```
 
-Once you have multiple providers registered, you can hot-swap which one the `pkt chat`, `ask`, and `debug` commands use in an instant:
+The first model added becomes the default. To change the default later:
 ```bash
-pkt config ai ollama  # Switches all AI commands to use local ollama
-pkt config ai groq    # Switches back to Groq
+pkt change ai add model llama-3.3-70b-versatile --provider groq
+```
+(adding an already-saved model is a no-op, so use `/model` in chat or remove and re-add)
+
+### Switching Active Provider
+
+```bash
+pkt change ai groq    # Switch active provider
+pkt change ai ollama
+```
+
+Or switch inside `pkt chat` without leaving the session:
+```
+/provider groq
+/model llama-3.3-70b-versatile
+```
+
+### Removing Providers, Keys, and Models
+
+```bash
+pkt change ai remove key sk-... --provider groq
+pkt change ai remove model llama-3.1-8b-instant --provider groq
+pkt change ai remove provider groq
 ```

@@ -1,5 +1,9 @@
 # Binaries
 bin/
+/pkt
+/pkt-linux
+/exc
+/lint.txt
 *.exe
 *.dll
 *.so

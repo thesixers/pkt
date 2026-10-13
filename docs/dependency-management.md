@@ -23,12 +23,7 @@ Uninstalls the dependency from the project and removes its entry from the manife
 
 ---
 
-## 2. Installing and Updating
-
-### Fresh Installations (`pkt install`)
-**Command:** `pkt install`
-
-Reads the existing manifest and lockfiles to execute a clean installation of all required dependencies. Used primarily after cloning a repository.
+## 2. Updating Packages
 
 ### Updating Packages (`pkt update`)
 **Command:** `pkt update [package...]`

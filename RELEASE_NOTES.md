@@ -13,14 +13,11 @@ This massive release transforms `pkt` from a standard project manager into a hyp
 ### 🤖 The Autonomous AI Studio
 
 - **`pkt chat`**: Launch an active, infinite Terminal REPL session allowing a constant two-way conversation with a fully integrated Coding Agent! The AI physically uses local Context Tools (`list_dir`, `read_file`, `write_file`, `make_dir`, `delete_file`, `run_command`, `get_project_info`) to autonomously examine directories, parse your scripts, and perfectly execute bash commands across your active codebase!
-- **Universal Provider Engine**: Connect explicitly to any top LLM ecosystem without limits. Natively hooks into **OpenAI, Google Gemini, and Groq** right out of the box via `pkt config set-ai <provider> <api_key>`.
-- **Dynamic Cross-Provider Flagging**: Swap AI intelligence layers directly on any command simultaneously using the `-p` / `--provider` flag (e.g. `pkt generate "React hook" -p gemini`)!
-- **Custom Model Binders**: Fine-tune your AI explicitly with `pkt config set-model <provider> <model_name>`, ensuring you can always tap precisely into Llama-3, GPT-4o, or Gemini 1.5 Flash natively.
+- **Universal Provider Engine**: Connect explicitly to any top LLM ecosystem without limits. Natively hooks into **OpenAI, Google Gemini, and Groq** right out of the box via `pkt change ai add provider <name>` and `pkt change ai add key <key> --provider <name>`.
+- **Custom Model Binders**: Fine-tune your AI explicitly with `pkt change ai add model <model> --provider <name>`, ensuring you can always tap precisely into Llama-3, GPT-4o, or Gemini 1.5 Flash natively.
 
 ### ⚡ Context-Aware Intelligence Commands
 
-- **`pkt ask "question"`**: Instantly ask the AI specific logic queries. The CLI seamlessly pipes your project's custom `README.md` and Framework environments natively into the Context Window so it answers directly regarding your active language and Package Manager!
-- **`pkt generate "feature"`**: Scaffold deep boilerplate templates, scripts, or components automatically tailored natively to your active environment.
 - **`pkt debug`**: Native pipeline to debug server traces. Aggressively pipes broken error text or raw `stdin` chains straight to the AI (e.g. `cat log.txt | pkt debug`).
 - **`pkt add --ai <prompt>`**: Talk to the CLI naturally to query package dependencies. Tell the AI what you want to achieve, and it physically translates it into hard CLI dependency parameters and organically routes it directly to your package manager!
 

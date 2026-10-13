@@ -73,9 +73,6 @@ pkt add -D typescript eslint   # Dev dependencies
 # Run scripts
 pkt run dev                    # npm/pnpm run dev
 pkt run test                   # Run tests for any language
-
-# Install all dependencies
-pkt install
 ```
 
 ## Supported Languages
@@ -119,8 +116,6 @@ pkt compiles to a single binary with no external dependencies:
 | Command               | Description                                                                     |
 | --------------------- | ------------------------------------------------------------------------------- |
 | `pkt chat`            | Launch a highly-capable Autonomous AI Coding Agent REPL directly in your shell! |
-| `pkt ask <query>`     | AI-assisted code query using your active local repository environment           |
-| `pkt generate <desc>` | Leverage AI to accurately scaffold specific boilerplate scripts locally         |
 | `pkt debug [log]`     | Pass error traces to deeply diagnose logic natively (supports `stdin` piping)   |
 | `pkt add --ai <desc>` | Install local packages purely through natural-language descriptions!            |
 
@@ -143,7 +138,6 @@ pkt compiles to a single binary with no external dependencies:
 | `pkt open <project>`          | Open project in configured editor                     |
 | `pkt delete <project>`        | Delete project from filesystem and database           |
 | `pkt rename <project>`        | Rename a tracked project                              |
-| `pkt search <query>`          | Search through tracked projects                       |
 | `pkt stats`                   | Show footprint analytics covering your root domains   |
 | `pkt status`                  | Display dynamic git uncommitted states deeply         |
 | `pkt clean`                   | Prune localized heavy `.venv` / `node_modules` caches |
@@ -157,7 +151,6 @@ pkt compiles to a single binary with no external dependencies:
 | `pkt add <pkg...>`    | Add one or more dependencies       |
 | `pkt add -D <pkg...>` | Add as dev dependencies            |
 | `pkt remove <pkg...>` | Remove dependencies                |
-| `pkt install`         | Install all dependencies           |
 | `pkt update [pkg...]` | Update dependencies ⭐ NEW         |
 | `pkt outdated`        | Check for outdated packages ⭐ NEW |
 | `pkt deps [project]`  | List project dependencies          |
@@ -178,43 +171,47 @@ pkt compiles to a single binary with no external dependencies:
 | **Go**         | `pkt run run`, `pkt run test`, `pkt run build`         |
 | **Rust**       | `pkt run run`, `pkt run test`, `pkt run build`         |
 
-### Package Manager
-
-| Command                     | Description                          |
-| --------------------------- | ------------------------------------ |
-| `pkt pm set <pm> <project>` | Change package manager for a project |
-
 ### Configuration
 
-| Command                                    | Description                                                      |
-| ------------------------------------------ | ---------------------------------------------------------------- |
-| `pkt config`                               | Show current config and full provider registry                   |
-| `pkt config editor <cmd>`                  | Change editor (e.g., code, cursor)                               |
-| `pkt config pm <pm>`                       | Change default package manager                                   |
-| `pkt config ai <provider>`                 | Switch active AI provider                                        |
-| `pkt config set-ai <provider> <api_key>`   | Register a cloud provider with an API key (Groq, Gemini, OpenAI) |
-| `pkt config set-ai <provider>`             | Register a local provider with no key (ollama, local)            |
-| `pkt config set-ai <provider> --url <url>` | Register a self-hosted provider at a custom URL                  |
-| `pkt config set-model <provider> <model>`  | Pin a specific model for any provider                            |
+| Command                                                      | Description                                                      |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `pkt config`                                                 | Show current config and full provider registry                   |
+| `pkt change editor <cmd>`                                    | Change editor (e.g., code, cursor)                               |
+| `pkt change pm <pm>`                                         | Change current project's package manager                         |
+| `pkt change pm <pm> -l <lang> -g`                            | Change a language's default package manager                      |
+| `pkt change ai <provider>`                                   | Switch active AI provider                                        |
+| `pkt change root <path>`                                     | Set projects root for newly created or cloned projects           |
+| `pkt change ai add provider <name>`                          | Register a cloud or local provider                               |
+| `pkt change ai add provider <name> --url <url>`              | Register a self-hosted provider at a custom URL                  |
+| `pkt change ai add key <api_key> --provider <name>`          | Add an API key to a registered provider                          |
+| `pkt change ai add model <model> --provider <name>`          | Add a model to a registered provider                             |
+| `pkt change ai remove key <api_key> --provider <name>`       | Remove an API key from a provider                                |
+| `pkt change ai remove model <model> --provider <name>`       | Remove a model from a provider                                   |
+| `pkt change ai remove provider <name>`                       | Remove a registered provider entirely                            |
 
 **Examples:**
 
 ```bash
 # Cloud providers
-pkt config set-ai groq   sk-xxxx
-pkt config set-ai gemini AIxxxx
+pkt change ai add provider groq
+pkt change ai add key sk-xxxx --provider groq
+pkt change ai add key AIxxxx --provider gemini
 
 # Local Ollama (no key needed)
-pkt config set-ai ollama
-pkt config ai ollama
+pkt change ai add provider ollama
+pkt change ai ollama
 
 # Self-hosted at a custom URL
-pkt config set-ai local --url http://localhost:1234
-pkt config set-model local phi3
-pkt config ai local
+pkt change ai add provider local --url http://localhost:1234
+pkt change ai add model phi3 --provider local
+pkt change ai local
 
-# Pin a model
-pkt config set-model groq llama-3.3-70b-versatile
+# Add multiple models
+pkt change ai add model llama-3.3-70b-versatile --provider groq
+pkt change ai add model llama-3.1-8b-instant --provider groq
+
+# Choose where newly created projects are stored
+pkt change root ~/Projects
 ```
 
 ## Python Virtual Environment
@@ -242,7 +239,12 @@ Configuration is stored in `~/.pkt/config.json`:
 ```json
 {
   "projects_root": "~/Documents/workspace",
-  "default_pm": "pnpm",
+  "default_pms": {
+    "javascript": "pnpm",
+    "python": "uv",
+    "go": "go",
+    "rust": "cargo"
+  },
   "editor": "code",
   "initialized": true
 }

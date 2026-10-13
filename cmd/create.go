@@ -84,7 +84,7 @@ Examples:
 		fullLangName := langImpl.Name()
 
 		// Determine package manager
-		packageManager := cfg.DefaultPM
+		packageManager := cfg.DefaultPMForLanguage(fullLangName)
 		availablePMs := pm.ListForLanguage(fullLangName)
 		if len(availablePMs) == 0 {
 			return fmt.Errorf("no package managers available for %s", langImpl.DisplayName())

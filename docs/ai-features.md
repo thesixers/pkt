@@ -23,29 +23,7 @@ Run `pkt chat` and simply type: `"Find the authentication bug in src/auth.go, fi
 
 ---
 
-## 2. Contextual Querying (`pkt ask`)
-
-**Command:** `pkt ask <query...>`
-
-A quick-access command for one-off questions. Because `pkt` knows your current directory, it passes your project's context directly to the LLM.
-
-**Example:**
-`pkt ask "how do I configure a database connection pool in this Rust project?"`
-
----
-
-## 3. Code Scaffolding (`pkt generate`)
-
-**Command:** `pkt generate <description...>`
-
-Instructs the AI to generate boilerplate code. The engine forces the LLM to output structured markdown blocks, which `pkt` can then parse and potentially pipe directly into files.
-
-**Example:**
-`pkt generate "A python FastAPI router for user registration"`
-
----
-
-## 4. Native Debugging (`pkt debug`)
+## 2. Native Debugging (`pkt debug`)
 
 **Command:** `pkt debug [filename]`
 
@@ -63,7 +41,7 @@ This command is engineered to instantly diagnose failing logs or stack traces.
 
 ---
 
-## 5. Semantic Package Searching (`pkt add --ai`)
+## 3. Semantic Package Searching (`pkt add --ai`)
 
 **Command:** `pkt add --ai <description...>`
 
@@ -74,3 +52,46 @@ Instead of googling for package names, you can describe what you want the packag
 2. `pkt` parses this JSON and dynamically renders an interactive multi-select checkbox list in your terminal using the `survey/v2` UI library.
 3. You use your Arrow Keys to navigate, `Spacebar` to select the packages you want, and `Enter` to confirm.
 4. `pkt` immediately routes the selected packages to your native Package Manager for installation!
+
+---
+
+## 4. Agent Skills & Reusable Knowledge (`#skill`)
+
+Just like Claude Code and Antigravity, `pkt chat` supports learning and applying **Skills** — modular, reusable guidelines, workflows, or rulesets that elevate the agent's performance.
+
+### Calling Skills with the Dedicated `#` (or `$`) Sign
+In the same way `/` is used for slash commands and `@` is used to attach files, `#` is the dedicated trigger sign for skills:
+
+```bash
+pkt [groq:llama-3.3-70b] ❯ refactor this handler according to #go-clean-arch
+```
+
+- You can mention `#<skill-name>` anywhere in your prompt.
+- `pkt` automatically loads the skill instructions and injects them directly into the agent's context.
+- Pressing **Tab** after `#` (or `$`) provides interactive auto-completion of all available skills.
+
+### Skill Discovery & Storage
+Skills are discovered automatically across project and global scopes:
+- **Project skills**: `.skills/` (preferred hidden folder in project root) or `.pkt/skills/`.
+- **Global skills**: `~/.pkt/skills/` (and reads/shares existing skills from `~/.gemini/config/skills/`).
+
+**Storage Rules:**
+- **Project skills** are saved to `.skills/<name>/SKILL.md` in the current project root.
+- **Global skills** are **always** saved to `~/.pkt/skills/<name>/SKILL.md` (it will never write to `~/.gemini/config/skills/`, but can share and read them).
+
+Skills can be defined either as Markdown files (`<name>.md` or `<name>/SKILL.md`) with standard YAML frontmatter:
+
+```markdown
+---
+name: go-clean-arch
+description: Clean architecture principles for Go services
+---
+
+Follow domain-driven directory layout. Handlers must never call DB directly.
+```
+
+### Managing & Teaching Skills in Chat
+- `/skills` — List all registered skills across project and global scopes.
+- `/skill <name>` — View full instructions and metadata of any skill.
+- `/learn [--global|--project] <name> <instructions...>` — Teach the agent a new skill and save it to `.skills/` (or `~/.pkt/skills/`).
+- **Autonomous Learning**: The agent is equipped with the `learn_skill` tool, allowing it to autonomously persist guidelines and techniques when instructed.

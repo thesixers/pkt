@@ -28,7 +28,7 @@ Examples:
   pkt run dev                      # Run package.json script
   pkt run .                        # Run default project file/script`,
 	DisableFlagParsing: true,
-	ValidArgsFunction: completeScripts,
+	ValidArgsFunction:  completeScripts,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			printNoArgsHelp()
@@ -79,8 +79,8 @@ Examples:
 				switch ext {
 				case ".ts", ".tsx", ".js", ".mjs":
 					defaultJS := "npm"
-					if cfg != nil && cfg.DefaultPM != "" {
-						defaultJS = cfg.DefaultPM
+					if cfg != nil && cfg.DefaultPMForLanguage("javascript") != "" {
+						defaultJS = cfg.DefaultPMForLanguage("javascript")
 					}
 					pManager, _ = pm.Get("javascript", defaultJS)
 				case ".py":
@@ -199,7 +199,7 @@ func executeDirect(target string, interpFlags, args []string, cwd string) error 
 	// Let the OS execute it directly
 	cmdArgs := append(interpFlags, target)
 	cmdArgs = append(cmdArgs, args...)
-	
+
 	// Assume the first flag is not the executable if we are direct executing
 	var executable string
 	execArgs := cmdArgs[1:]

@@ -1,4 +1,4 @@
-.PHONY: build install test clean
+.PHONY: build install test test-integration clean
 
 # Build variables
 BINARY_NAME=pkt
@@ -24,6 +24,12 @@ install: build
 test:
 	@echo "Running tests..."
 	@go test ./... -v
+
+# Runs package-manager tests that access the network. Kept separate from the
+# default test suite so local and CI unit tests remain hermetic.
+test-integration:
+	@echo "Running package-manager integration tests..."
+	@go test -tags=integration -timeout 3m ./internal/pm -v
 
 # Clean build artifacts
 clean:
