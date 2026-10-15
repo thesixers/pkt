@@ -43,7 +43,8 @@ This must be run before using any other pkt commands.`,
 				fmt.Printf("  Editor: %s\n", cfg.EditorCommand)
 				fmt.Println("\nConfig file: ~/.pkt/config.json")
 				fmt.Println("Database: ~/.pkt/pkt.db")
-				fmt.Println("\nTo reconfigure, delete ~/.pkt/ and run 'pkt start' again.")
+				fmt.Println("\nTo install or update shell autocomplete, run 'pkt completion install'.")
+				fmt.Println("To reconfigure, delete ~/.pkt/ and run 'pkt start' again.")
 				return nil
 			}
 		}
@@ -273,6 +274,17 @@ This must be run before using any other pkt commands.`,
 		}
 		fmt.Println("  Database initialized at ~/.pkt/pkt.db")
 
+		// Setup Shell Autocomplete
+		fmt.Println("\nSetting up shell autocomplete...")
+		res, err := InstallAutocomplete(rootCmd, "")
+		if err != nil {
+			fmt.Printf("  [!] Could not configure autocomplete automatically: %v\n", err)
+			fmt.Println("  You can configure it manually using: pkt completion install")
+		} else {
+			fmt.Printf("  [+] Detected shell: %s (%s)\n", res.Shell, res.OS)
+			fmt.Printf("  [+] %s\n", res.Message)
+		}
+
 		// Final summary
 		fmt.Println("\n" + strings.Repeat("-", 40))
 		fmt.Println("pkt is ready to use!")
@@ -316,6 +328,7 @@ This must be run before using any other pkt commands.`,
 		}
 
 		fmt.Println("\nNext steps:")
+		fmt.Println("  • Reload shell for autocomplete: exec $SHELL (or restart terminal)")
 		fmt.Println("  • Create a project: pkt create <name>")
 		fmt.Println("  • Initialize existing: pkt init <path>")
 		fmt.Println("  • Clone a repo: pkt clone <url>")

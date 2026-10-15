@@ -123,9 +123,11 @@ pkt compiles to a single binary with no external dependencies:
 
 ### Setup
 
-| Command     | Description                               |
-| ----------- | ----------------------------------------- |
-| `pkt start` | Initialize pkt configuration and database |
+| Command                            | Description                                                 |
+| ---------------------------------- | ----------------------------------------------------------- |
+| `pkt start`                        | Initialize pkt configuration, database, and autocomplete     |
+| `pkt completion install [shell]`   | Automatically detect and install shell autocomplete ⭐ NEW   |
+| `pkt completion <bash\|zsh\|...>`   | Print autocompletion script for manual sourcing             |
 
 ### Project Management
 

@@ -60,6 +60,7 @@ No more calculating fragile relative paths (`../../`) or jumping across director
 
 ### 🚀 CLI Tooling & Safety
 
+- **Automated Shell Autocomplete**: `pkt start` now automatically detects your OS and active shell (`bash`, `zsh`, `fish`, or `powershell`), generates the completion script, and installs it to the appropriate user location (e.g. `~/.local/share/bash-completion/completions/pkt` and `~/.bashrc` on Linux, `~/.pkt/completions/` and `~/.zshrc` on macOS/Zsh, `~/.config/fish/completions/` on Fish). Also accessible anytime via `pkt completion install [shell]`.
 - **`pkt upgrade`**: Automatic in-place self-updater checking GitHub releases.
 - **PM2-Style Tables**: Modern rounded ASCII tables for `pkt list` and `pkt outdated` via `go-pretty/table`.
 - **`pkt version`**: Native version reporting command.

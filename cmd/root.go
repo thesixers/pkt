@@ -36,8 +36,8 @@ Quick Start:
   pkt run dev            Run scripts
   pkt clone <url>        Clone and track repo`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Skip config check for start command
-		if cmd.Name() == "start" {
+		// Skip config check for commands that don't need initialization
+		if isNoConfigCmd(cmd) {
 			return nil
 		}
 
@@ -61,6 +61,23 @@ Quick Start:
 		// Close database connection
 		return db.Close()
 	},
+}
+
+// isNoConfigCmd returns true if the command can run without initialized pkt config or database.
+func isNoConfigCmd(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	name := cmd.Name()
+	if name == "start" || name == "version" || name == "help" {
+		return true
+	}
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "completion" {
+			return true
+		}
+	}
+	return false
 }
 
 // Execute runs the root command
