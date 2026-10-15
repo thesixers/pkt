@@ -129,7 +129,7 @@ func RenderCodeBlock(lang, code string, width int) string {
 
 	var b strings.Builder
 	// Top border: ╭─── [go] ──────────────────────────────────────────╮
-	b.WriteString(fmt.Sprintf("\n\033[38;5;238m╭───\033[0m %s \033[38;5;238m%s╮\033[0m\n", badge, strings.Repeat("─", dashCount)))
+	fmt.Fprintf(&b, "\n\033[38;5;238m╭───\033[0m %s \033[38;5;238m%s╮\033[0m\n", badge, strings.Repeat("─", dashCount))
 
 	lineCount := len(codeLines)
 	numWidth := len(fmt.Sprintf("%d", lineCount))
@@ -139,12 +139,12 @@ func RenderCodeBlock(lang, code string, width int) string {
 
 	for i, l := range codeLines {
 		lineNum := fmt.Sprintf("\033[38;5;241m%*d\033[0m", numWidth, i+1)
-		b.WriteString(fmt.Sprintf("\033[38;5;238m│\033[0m %s \033[38;5;238m│\033[0m %s\n", lineNum, l))
+		fmt.Fprintf(&b, "\033[38;5;238m│\033[0m %s \033[38;5;238m│\033[0m %s\n", lineNum, l)
 	}
 
 	// Bottom border: ╰────────────────────────────────────────────────╯
 	bottomDashes := boxWidth - 2
-	b.WriteString(fmt.Sprintf("\033[38;5;238m╰%s╯\033[0m\n", strings.Repeat("─", bottomDashes)))
+	fmt.Fprintf(&b, "\033[38;5;238m╰%s╯\033[0m\n", strings.Repeat("─", bottomDashes))
 
 	return b.String()
 }
@@ -205,12 +205,8 @@ func isTableSeparator(line string) bool {
 
 func splitTableRow(line string) []string {
 	trimmed := strings.TrimSpace(line)
-	if strings.HasPrefix(trimmed, "|") {
-		trimmed = trimmed[1:]
-	}
-	if strings.HasSuffix(trimmed, "|") {
-		trimmed = trimmed[:len(trimmed)-1]
-	}
+	trimmed = strings.TrimPrefix(trimmed, "|")
+	trimmed = strings.TrimSuffix(trimmed, "|")
 	cells := strings.Split(trimmed, "|")
 	var result []string
 	for _, c := range cells {

@@ -305,10 +305,11 @@ func StartChatSession(provider string, model string, projectContext string) erro
 				}
 				args := parts[1:]
 				isGlobal := (project == nil)
-				if args[0] == "--global" || args[0] == "-g" {
+				switch args[0] {
+				case "--global", "-g":
 					isGlobal = true
 					args = args[1:]
-				} else if args[0] == "--project" || args[0] == "-p" {
+				case "--project", "-p":
 					isGlobal = false
 					args = args[1:]
 				}

@@ -239,8 +239,9 @@ func ExtractSkillMentions(input string, availableSkills map[string]Skill) ([]Ski
 			seen[skillKey] = true
 			activeSkills = append(activeSkills, skill)
 
-			promptBuilder.WriteString(fmt.Sprintf("\n\n[Active Learned Skill: %s]\nDescription: %s\nGuidelines & Instructions:\n%s\n",
-				skill.Name, skill.Description, skill.Content))
+			promptBuilder.WriteString("\n\n")
+			fmt.Fprintf(&promptBuilder, "[Active Learned Skill: %s]\nDescription: %s\nGuidelines & Instructions:\n%s\n",
+				skill.Name, skill.Description, skill.Content)
 		}
 	}
 

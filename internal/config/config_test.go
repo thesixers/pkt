@@ -244,7 +244,7 @@ func TestAIProviderKeyModelOperations(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expected error adding key to non-existent provider")
 	}
-	expectedErr := "Provider \"groq\" is not configured. Add it first with:\npkt change ai add provider groq"
+	expectedErr := "provider \"groq\" is not configured. Add it first with:\npkt change ai add provider groq"
 	if err.Error() != expectedErr {
 		t.Errorf("Expected error '%s', got '%s'", expectedErr, err.Error())
 	}

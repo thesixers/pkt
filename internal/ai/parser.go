@@ -67,7 +67,7 @@ func ExtractContextAttachments(input string) ([]AttachedContext, string) {
 				LineCount: len(entries),
 				Content:   listing,
 			})
-			promptBuilder.WriteString(fmt.Sprintf("\n\n[Attached Directory: %s]\n%s\n", targetPath, listing))
+			fmt.Fprintf(&promptBuilder, "\n\n[Attached Directory: %s]\n%s\n", targetPath, listing)
 		} else {
 			const maxBytes = 256 * 1024 // 256KB cap
 			data, err := os.ReadFile(targetPath)
@@ -95,7 +95,7 @@ func ExtractContextAttachments(input string) ([]AttachedContext, string) {
 			})
 
 			ext := strings.TrimPrefix(filepath.Ext(targetPath), ".")
-			promptBuilder.WriteString(fmt.Sprintf("\n\n[Attached File: %s (%d lines)]\n```%s\n%s\n```\n", targetPath, lineCount, ext, content))
+			fmt.Fprintf(&promptBuilder, "\n\n[Attached File: %s (%d lines)]\n```%s\n%s\n```\n", targetPath, lineCount, ext, content)
 		}
 	}
 

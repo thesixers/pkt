@@ -206,11 +206,12 @@ func (c *ChatCompleter) completeFilePath(pathPrefix string) ([][]rune, int) {
 
 		if strings.HasPrefix(name, base) {
 			var fullMatch string
-			if dir == "." {
+			switch dir {
+			case ".":
 				fullMatch = name
-			} else if dir == "/" {
+			case "/":
 				fullMatch = "/" + name
-			} else {
+			default:
 				fullMatch = filepath.ToSlash(filepath.Join(dir, name))
 			}
 

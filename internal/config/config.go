@@ -292,7 +292,7 @@ func (c *Config) AddKey(provider, key string) error {
 
 	pc, exists := c.AIProviders[provider]
 	if !exists {
-		return fmt.Errorf("Provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
+		return fmt.Errorf("provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
 	}
 
 	if addUnique(&pc.APIKeys, key) {
@@ -309,7 +309,7 @@ func (c *Config) RemoveKey(provider, key string) error {
 
 	pc, exists := c.AIProviders[provider]
 	if !exists {
-		return fmt.Errorf("Provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
+		return fmt.Errorf("provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
 	}
 
 	origLen := len(pc.APIKeys)
@@ -333,7 +333,7 @@ func (c *Config) AddModel(provider, model string) error {
 
 	pc, exists := c.AIProviders[provider]
 	if !exists {
-		return fmt.Errorf("Provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
+		return fmt.Errorf("provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
 	}
 
 	addUnique(&pc.Models, model)
@@ -351,7 +351,7 @@ func (c *Config) RemoveModel(provider, model string) error {
 
 	pc, exists := c.AIProviders[provider]
 	if !exists {
-		return fmt.Errorf("Provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
+		return fmt.Errorf("provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
 	}
 
 	origLen := len(pc.Models)
@@ -381,7 +381,7 @@ func (c *Config) SetDefaultModel(provider, model string) error {
 
 	pc, exists := c.AIProviders[provider]
 	if !exists {
-		return fmt.Errorf("Provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
+		return fmt.Errorf("provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
 	}
 
 	addUnique(&pc.Models, model)
@@ -394,7 +394,7 @@ func (c *Config) SetDefaultModel(provider, model string) error {
 func (c *Config) SetActiveProvider(provider string) error {
 	provider = strings.TrimSpace(provider)
 	if _, exists := c.AIProviders[provider]; !exists {
-		return fmt.Errorf("Provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
+		return fmt.Errorf("provider \"%s\" is not configured. Add it first with:\npkt change ai add provider %s", provider, provider)
 	}
 	c.AIProvider = provider
 	return Save(c)
