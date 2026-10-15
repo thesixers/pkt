@@ -97,8 +97,10 @@ func installBash(root *cobra.Command, home string) (*AutocompleteResult, error) 
 	// 1. Try standard bash-completion user directory:
 	// ~/.local/share/bash-completion/completions/pkt
 	compDir := filepath.Join(home, ".local", "share", "bash-completion", "completions")
-	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
-		compDir = filepath.Join(xdg, "bash-completion", "completions")
+	if userHome, err := os.UserHomeDir(); err == nil && home == userHome {
+		if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
+			compDir = filepath.Join(xdg, "bash-completion", "completions")
+		}
 	}
 
 	standardPath := filepath.Join(compDir, "pkt")
@@ -219,8 +221,10 @@ func installFish(root *cobra.Command, home string) (*AutocompleteResult, error) 
 	script := buf.Bytes()
 
 	compDir := filepath.Join(home, ".config", "fish", "completions")
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		compDir = filepath.Join(xdg, "fish", "completions")
+	if userHome, err := os.UserHomeDir(); err == nil && home == userHome {
+		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+			compDir = filepath.Join(xdg, "fish", "completions")
+		}
 	}
 	if err := os.MkdirAll(compDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory %s: %w", compDir, err)
@@ -298,7 +302,9 @@ func appendString(filePath, text string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	_, err = f.WriteString(text)
 	return err
 }

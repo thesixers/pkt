@@ -8,9 +8,6 @@ import (
 )
 
 func TestDetectShell(t *testing.T) {
-	origShell := os.Getenv("SHELL")
-	defer os.Setenv("SHELL", origShell)
-
 	tests := []struct {
 		envVal   string
 		expected string
@@ -23,7 +20,7 @@ func TestDetectShell(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		os.Setenv("SHELL", tt.envVal)
+		t.Setenv("SHELL", tt.envVal)
 		detected := DetectShell()
 		if detected != tt.expected {
 			t.Errorf("DetectShell() for SHELL=%q: got %q, want %q", tt.envVal, detected, tt.expected)

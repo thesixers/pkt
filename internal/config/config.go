@@ -138,16 +138,12 @@ func Load() (*Config, error) {
 	}
 	for name, pc := range cfg.AIProviders {
 		if pc.APIKey != "" {
-			if addUnique(&pc.APIKeys, pc.APIKey) {
-				migrated = true
-			}
+			addUnique(&pc.APIKeys, pc.APIKey)
 			pc.APIKey = ""
 			migrated = true
 		}
 		if pc.Model != "" {
-			if addUnique(&pc.Models, pc.Model) {
-				migrated = true
-			}
+			addUnique(&pc.Models, pc.Model)
 			if pc.DefaultModel == "" {
 				pc.DefaultModel = pc.Model
 			}

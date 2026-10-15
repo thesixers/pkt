@@ -171,7 +171,7 @@ Examples:
 			}
 		}
 		if !isValidKey {
-			return fmt.Errorf("unknown key or command: %q\n\nValid keys: editor, pm, lang, rebuild, root\nTo manage AI providers use: pkt change ai add/remove ...", key)
+			return fmt.Errorf("unknown key or command: %q\n\nValid keys: editor, pm, lang, rebuild, root\nTo manage AI providers use: pkt change ai add/remove", key)
 		}
 
 		if key != "rebuild" && len(args) < 2 {
